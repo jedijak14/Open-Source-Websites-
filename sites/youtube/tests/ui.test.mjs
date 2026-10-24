@@ -64,8 +64,27 @@ async function load(page, seed) {
       if (seed) window.localStorage.setItem('opentube:v1', JSON.stringify(seed));
     },
   });
-  await new Promise((r) => setTimeout(r, 350));
+  // app.js assigns window.OT only after boot() has finished rendering, so this
+  // is a reliable "page is ready" signal — no fixed sleeps to race against.
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline && !dom.window.OT) {
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  if (!dom.window.OT) {
+    errors.push('boot timeout: window.OT was never assigned');
+  }
   return { dom, doc: dom.window.document, win: dom.window, errors };
+}
+
+async function settle(predicate, timeout = 3000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      if (predicate()) return true;
+    } catch (err) { /* predicate ran against a half-rendered DOM; retry */ }
+    await new Promise((r) => setTimeout(r, 25));
+  }
+  return false;
 }
 
 function check(name, condition, detail = '') {
@@ -85,7 +104,7 @@ async function run() {
 
     const music = [...doc.querySelectorAll('#chips .chip')].find((b) => b.textContent === 'Music');
     music.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
-    await new Promise((r) => setTimeout(r, 60));
+    await settle(() => doc.querySelectorAll('#feed-grid .card').length === 3);
     check('home: Music filter shows 3 cards', doc.querySelectorAll('#feed-grid .card').length === 3,
       doc.querySelectorAll('#feed-grid .card').length + '');
     check('home: heading follows the filter', doc.querySelector('#feed-heading')?.textContent === 'Music');
