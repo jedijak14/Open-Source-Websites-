@@ -936,9 +936,13 @@ body[data-theater="on"] .watch__primary { max-width: 1280px; margin: 0 auto; pad
   font-weight: 700;
   color: var(--text);
 }
-.description.is-collapsed .description__text,
-.description.is-collapsed .description__tags { display: none; }
-.description.is-collapsed .description__toggle { margin-top: 0; }
+.description.is-collapsed .description__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.description.is-collapsed .chapters { margin-top: 8px; }
 
 .chapters { margin-top: 12px; display: flex; flex-direction: column; gap: 2px; }
 .chapter {
