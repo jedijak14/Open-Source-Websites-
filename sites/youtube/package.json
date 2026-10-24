@@ -1,0 +1,16 @@
+{
+  "name": "opentube-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenTube — an open-source video platform demo built with plain HTML, CSS and JavaScript",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.mjs",
+    "build": "node scripts/build-pages.mjs",
+    "test": "node tests/ui.test.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
+  }
+}

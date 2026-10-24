@@ -1,0 +1,144 @@
+<!--meta {"title":"Watch — OpenTube","description":"Watch a video on OpenTube with chapters, transcript captions, comments and up-next recommendations.","page":"watch"}-->
+<div class="watch">
+  <div class="watch__primary">
+    <div class="player-wrap" id="player">
+      <video id="video" playsinline preload="metadata" width="1280" height="720"></video>
+
+      <div class="player" id="player-ui">
+        <div class="player__hit" aria-label="Toggle playback" role="button" tabindex="0"></div>
+        <div class="player__big" id="player-big" aria-hidden="true"></div>
+
+        <div class="player__center" id="play-main-wrap">
+          <button class="player__play-main" id="play-main" type="button" aria-label="Play video">
+            <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
+          </button>
+        </div>
+
+        <div class="captions" id="captions" hidden></div>
+
+        <div class="player__controls">
+          <div class="scrub" id="scrub" role="slider" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0">
+            <div class="scrub__track">
+              <div class="scrub__buffer" id="scrub-buffer"></div>
+              <div class="scrub__fill" id="scrub-fill"></div>
+            </div>
+            <div class="scrub__handle" id="scrub-handle"></div>
+            <div class="scrub__tooltip" id="scrub-tip">0:00</div>
+          </div>
+
+          <div class="player__row">
+            <button class="icon-btn" id="play-toggle" type="button" aria-label="Play">
+              <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
+            </button>
+            <button class="icon-btn" id="back-btn" type="button" aria-label="Back 10 seconds"
+              onclick="window.OT && window.OT.seek(document.getElementById('video').currentTime - 10)">
+              <svg class="icon" aria-hidden="true"><use href="#i-back"></use></svg>
+            </button>
+            <button class="icon-btn" id="fwd-btn" type="button" aria-label="Forward 10 seconds"
+              onclick="window.OT && window.OT.seek(document.getElementById('video').currentTime + 10)">
+              <svg class="icon" aria-hidden="true"><use href="#i-forward"></use></svg>
+            </button>
+            <button class="icon-btn" id="mute-btn" type="button" aria-label="Mute">
+              <svg class="icon" aria-hidden="true"><use href="#i-volume"></use></svg>
+            </button>
+            <input id="volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume"
+              style="width:70px;accent-color:var(--brand);cursor:pointer">
+            <span class="player__time" id="time">0:00 / 0:00</span>
+            <span class="player__spacer"></span>
+            <button class="icon-btn" id="cc-btn" type="button" aria-label="Captions" aria-pressed="false">
+              <svg class="icon" aria-hidden="true"><use href="#i-cc"></use></svg>
+            </button>
+            <button class="icon-btn" id="speed-btn" type="button" aria-label="Playback speed" aria-haspopup="menu">
+              <svg class="icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+            </button>
+            <button class="icon-btn" id="theater-btn" type="button" aria-label="Theater mode">
+              <svg class="icon" aria-hidden="true"><use href="#i-theater"></use></svg>
+            </button>
+            <button class="icon-btn" id="fs-btn" type="button" aria-label="Fullscreen">
+              <svg class="icon" aria-hidden="true"><use href="#i-fullscreen"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="player__menu" id="speed-menu" role="menu" aria-label="Playback speed">
+          <h4>Playback speed</h4>
+          <button type="button" role="menuitemradio" data-speed="0.5" aria-checked="false">0.5×</button>
+          <button type="button" role="menuitemradio" data-speed="0.75" aria-checked="false">0.75×</button>
+          <button type="button" role="menuitemradio" data-speed="1" aria-checked="true">Normal</button>
+          <button type="button" role="menuitemradio" data-speed="1.25" aria-checked="false">1.25×</button>
+          <button type="button" role="menuitemradio" data-speed="1.5" aria-checked="false">1.5×</button>
+          <button type="button" role="menuitemradio" data-speed="2" aria-checked="false">2×</button>
+        </div>
+      </div>
+    </div>
+
+    <h1 class="watch__title" id="watch-title"></h1>
+    <div class="watch__sub" id="watch-sub"></div>
+
+    <div class="watch__actions">
+      <div class="action--split" id="like-wrap">
+        <button class="split-btn" id="like-btn" type="button" aria-pressed="false">
+          <svg class="icon icon--sm" aria-hidden="true"><use href="#i-like"></use></svg>
+          <span>0</span>
+        </button>
+        <span id="dislike-wrap" style="display:contents">
+          <span class="action__divider"></span>
+          <button class="split-btn" id="dislike-btn" type="button" aria-pressed="false" aria-label="Dislike">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-dislike"></use></svg>
+          </button>
+        </span>
+      </div>
+      <button class="action" id="share-btn" type="button">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-share"></use></svg> Share
+      </button>
+      <button class="action" id="download-btn" type="button">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-download"></use></svg> Download
+      </button>
+      <button class="action" id="save-btn" type="button" aria-pressed="false"></button>
+      <button class="action" id="more-btn" type="button" aria-haspopup="menu" aria-label="More actions">
+        <svg class="icon icon--sm" aria-hidden="true"><use href="#i-more"></use></svg>
+      </button>
+    </div>
+
+    <div class="channel-bar" id="channel-bar"></div>
+    <div class="description is-collapsed" id="description"></div>
+
+    <section class="comments" aria-label="Comments">
+      <div class="comments__head">
+        <h2><span id="comment-count">0</span> Comments</h2>
+        <div style="display:flex;gap:8px">
+          <button class="chip" type="button" data-sort="top" aria-pressed="true">
+            <svg class="icon icon--xs" aria-hidden="true" style="display:inline;vertical-align:-3px"><use href="#i-sort"></use></svg>
+            Top comments
+          </button>
+          <button class="chip" type="button" data-sort="new" aria-pressed="false">Newest first</button>
+        </div>
+      </div>
+
+      <form class="comment-form" id="comment-form">
+        <div class="comment-form__avatar" aria-hidden="true">Y</div>
+        <div class="comment-form__body">
+          <label class="sr-only" for="comment-input">Add a comment</label>
+          <input id="comment-input" type="text" placeholder="Add a comment…" autocomplete="off" maxlength="600">
+          <div class="comment-form__actions">
+            <button class="btn-pill" type="reset">Cancel</button>
+            <button class="btn-pill btn-pill--brand" type="submit" id="comment-submit">Comment</button>
+          </div>
+        </div>
+      </form>
+
+      <div id="comments-list"></div>
+    </section>
+  </div>
+
+  <aside class="watch__aside" aria-label="Up next">
+    <div class="toggle-row">
+      <span>Autoplay</span>
+      <button class="switch" id="autoplay-switch" type="button" role="switch" aria-checked="true" aria-label="Autoplay"></button>
+    </div>
+    <div class="section-head" style="margin:4px 0 10px">
+      <h2 style="font-size:16px">Up next</h2>
+    </div>
+    <div id="up-next" style="display:flex;flex-direction:column;gap:12px"></div>
+  </aside>
+</div>
