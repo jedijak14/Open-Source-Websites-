@@ -1,22 +1,18 @@
 {
-  "name": "open-source-websites-",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "stellar-voyage",
+  "version": "2.0.0",
+  "type": "module",
+  "description": "Stellar Voyage — 3D Space Game with Walkable Starship, Cutscenes, Landing Animations, and Alien Fauna",
+  "main": "js/core.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "mkdir -p dist && cp -r index.html css js vendor dist/",
+    "start": "python3 -m http.server 8080 --bind 0.0.0.0"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/jedijak14/Open-Source-Websites-.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/jedijak14/Open-Source-Websites-/issues"
-  },
-  "homepage": "https://github.com/jedijak14/Open-Source-Websites-#readme",
+  "license": "Unlicense",
   "dependencies": {
     "three": "^0.164.1"
   }
