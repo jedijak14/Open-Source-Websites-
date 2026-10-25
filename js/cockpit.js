@@ -11,9 +11,9 @@
  */
 
 import * as THREE from "three";
-import { Textures } from "./textures.js?v=7";
-import Audio from "./audio.js?v=7";
-import { sharedGLTFLoader } from "./ship.js?v=7";
+import { Textures } from "./textures.js?v=8";
+import Audio from "./audio.js?v=8";
+import { sharedGLTFLoader } from "./ship.js?v=8";
 
 export const buildCockpit = () => {
   const cockpit = new THREE.Group();
@@ -453,7 +453,7 @@ export const buildCockpit = () => {
   bCtx.font = "14px monospace";
   bCtx.fillText("CIRCADIAN SLEEP BAY", 18, 60);
   bCtx.fillStyle = "#facc15";
-  bCtx.fillText("[E] SLEEP & RESTORE", 18, 92);
+  bCtx.fillText("REST & RESTORE STAMINA", 18, 92);
   bCtx.fillStyle = "#94a3b8";
   bCtx.font = "12px monospace";
   bCtx.fillText("STAMINA 100% // +8H SOLAR", 18, 112);

@@ -192,13 +192,13 @@ html, body {
 
 .hud-bar {
   position: absolute;
-  top: 20px;
-  left: 26px;
-  width: 310px;
-  background: rgba(10, 18, 34, 0.76);
+  top: 18px;
+  left: 22px;
+  width: 265px;
+  background: rgba(10, 18, 34, 0.78);
   border: 1px solid rgba(34, 211, 238, 0.32);
   border-radius: 10px;
-  padding: 11px 15px;
+  padding: 10px 14px;
   backdrop-filter: blur(5px);
 }
 
@@ -415,23 +415,34 @@ html, body {
   transition: width 0.08s linear;
 }
 
-/* Top-right quick actions */
+/* Top-right compact Settings & Menu buttons */
+.hud-top-right {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+/* Bottom-right quick action dock (never collides with top compass bar!) */
 .hud-actions {
   position: absolute;
-  top: 20px;
-  right: 26px;
+  bottom: 20px;
+  right: 22px;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
-  max-width: 62vw;
+  gap: 7px;
+  max-width: 440px;
   pointer-events: auto;
 }
 
 .hud-btn {
-  padding: 8px 12px;
+  padding: 7px 11px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.84);
+  background: rgba(15, 23, 42, 0.86);
   border: 1px solid rgba(34, 211, 238, 0.38);
   color: #e2e8f0;
   font-size: 11px;
@@ -475,15 +486,130 @@ html, body {
 /* Bottom-left telemetry panel */
 .hud-telemetry {
   position: absolute;
-  bottom: 48px;
-  left: 26px;
+  bottom: 20px;
+  left: 22px;
   display: flex;
-  gap: 18px;
-  background: rgba(10, 18, 34, 0.76);
+  gap: 16px;
+  background: rgba(10, 18, 34, 0.78);
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 10px;
-  padding: 11px 18px;
+  padding: 10px 16px;
   backdrop-filter: blur(5px);
+}
+
+/* ---------- Settings & Controls Sub-Menu ---------- */
+.settings-panel {
+  width: 560px;
+  max-width: 94vw;
+  padding: 30px 28px;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: 10px;
+  margin: 18px 0 16px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.25);
+  padding-bottom: 12px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: #e2e8f0;
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.tab-btn.active {
+  background: linear-gradient(180deg, rgba(14, 116, 144, 0.55) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border-color: #22d3ee;
+  color: #fff;
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.35);
+}
+
+.settings-section {
+  text-align: left;
+  margin: 12px 0 18px;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+}
+
+.setting-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #cbd5e1;
+  letter-spacing: 0.5px;
+}
+
+.settings-note {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-top: 12px;
+  text-align: center;
+  padding: 8px 12px;
+  background: rgba(8, 47, 73, 0.32);
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.controls-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 310px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.control-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 11px;
+  background: rgba(15, 23, 42, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 7px;
+}
+
+.ctrl-key {
+  font-size: 11px;
+  font-weight: 800;
+  color: #22d3ee;
+  background: rgba(8, 51, 68, 0.75);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  padding: 3px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  letter-spacing: 0.6px;
+}
+
+.ctrl-desc {
+  font-size: 12px;
+  color: #e2e8f0;
+  text-align: right;
 }
 
 .hud-row {

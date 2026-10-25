@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>STELLAR VOYAGE — A Space Odyssey</title>
-  <link rel="stylesheet" href="css/style.css?v=7" />
+  <link rel="stylesheet" href="css/style.css?v=8" />
   <script type="importmap">
     {
       "imports": {
@@ -19,7 +19,7 @@
 
   <!-- ================= UNDERWATER VISOR TINT OVERLAY ================= -->
   <div id="underwater-overlay" class="underwater-overlay hidden">
-    <div class="underwater-badge">🌊 HYDRO-BUOYANCY ACTIVE &bull; WASD: SWIM &bull; SPACE: SURFACE</div>
+    <div class="underwater-badge">🌊 HYDRO-BUOYANCY ACTIVE // OCEAN SWIMMING MODE</div>
   </div>
 
   <!-- ================= CAPTAIN'S BED SLEEP OVERLAY ================= -->
@@ -43,11 +43,61 @@
         <button class="btn" id="btn-continue" data-audio="click">Continue</button>
         <button class="btn" id="btn-load" data-audio="click">Load Game</button>
         <button class="btn" id="btn-planet" data-audio="click">🪐 Switch Planet</button>
+        <button class="btn" id="btn-settings" data-audio="click">⚙️ Settings</button>
         <button class="btn" id="btn-credits" data-audio="click">Credits</button>
       </div>
-      <div class="menu-hint">
-        <b>WASD</b>: Fly / Walk / Swim &bull; <b>Drag Mouse</b>: Look &bull; <b>I</b>: Walk Inside Ship &amp; Sleep in Bed<br>
-        <b>L</b>: Landing (with Steam) / Takeoff &bull; <b>TAB</b>: Explore Planet &amp; Oceans &bull; <b>SPACE</b>: Jump / Warp
+    </div>
+  </div>
+
+  <!-- ================= SETTINGS OVERLAY (WITH CONTROLS SUB-MENU) ================= -->
+  <div id="settings" class="overlay hidden">
+    <div class="menu-panel settings-panel">
+      <div class="logo">SETTINGS<br><span class="sub">SHIP CONFIGURATION</span></div>
+
+      <div class="settings-tabs">
+        <button class="tab-btn active" id="tab-btn-general" data-audio="click">General</button>
+        <button class="tab-btn" id="tab-btn-controls" data-audio="click">Controls</button>
+      </div>
+
+      <!-- General Tab -->
+      <div id="settings-panel-general" class="settings-section">
+        <div class="setting-row">
+          <span class="setting-label">Audio &amp; Soundtrack</span>
+          <button class="hud-btn" id="btn-toggle-mute">🔊 Sound: ON</button>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Active Starship Hull</span>
+          <button class="hud-btn" id="btn-settings-hull">🚀 Cycle Hull Model</button>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">Planetary System</span>
+          <button class="hud-btn" id="btn-settings-planet">🪐 Switch Planet</button>
+        </div>
+        <div class="settings-note">
+          Open the <b>Controls</b> tab above to view flight, ship interior, sleeping bed, and ocean swimming keybindings.
+        </div>
+      </div>
+
+      <!-- Controls Tab (Only place where controls are shown!) -->
+      <div id="settings-panel-controls" class="settings-section hidden">
+        <div class="controls-grid">
+          <div class="control-item"><span class="ctrl-key">W / S</span><span class="ctrl-desc">Throttle Up/Down (Flight) &bull; Walk / Swim Forward/Back</span></div>
+          <div class="control-item"><span class="ctrl-key">A / D</span><span class="ctrl-desc">Yaw Left/Right (Flight) &bull; Strafe Left/Right</span></div>
+          <div class="control-item"><span class="ctrl-key">Shift</span><span class="ctrl-desc">Afterburner Boost (Flight) &bull; Sprint / Fast Swim</span></div>
+          <div class="control-item"><span class="ctrl-key">Drag Mouse</span><span class="ctrl-desc">Steer Ship / Free Look</span></div>
+          <div class="control-item"><span class="ctrl-key">R / F &amp; Q / E</span><span class="ctrl-desc">Pitch Up/Down &amp; Roll Left/Right</span></div>
+          <div class="control-item"><span class="ctrl-key">I</span><span class="ctrl-desc">Walk Around Inside Ship Interior</span></div>
+          <div class="control-item"><span class="ctrl-key">B / E</span><span class="ctrl-desc">Sleep in Captain's Quarters Bed (+8h Solar &amp; 100% Stamina)</span></div>
+          <div class="control-item"><span class="ctrl-key">L</span><span class="ctrl-desc">Animated Planetary Landing (with Steam) / Liftoff</span></div>
+          <div class="control-item"><span class="ctrl-key">TAB / T</span><span class="ctrl-desc">Explore Planet Surface &amp; Swim in Oceans</span></div>
+          <div class="control-item"><span class="ctrl-key">SPACE</span><span class="ctrl-desc">Tap: Jump / Swim Up &bull; Hold: Quantum Warp</span></div>
+          <div class="control-item"><span class="ctrl-key">H &bull; P &bull; C</span><span class="ctrl-desc">Cycle Ship Hull (H) &bull; Switch Planet (P) &bull; Camera (C)</span></div>
+          <div class="control-item"><span class="ctrl-key">ESC</span><span class="ctrl-desc">Open Menu</span></div>
+        </div>
+      </div>
+
+      <div class="menu-buttons credits-buttons">
+        <button class="btn" id="btn-close-settings" data-audio="click">Back</button>
       </div>
     </div>
   </div>
@@ -70,9 +120,23 @@
     </div>
   </div>
 
-  <!-- ================= FULL VISOR & FLIGHT HUD ================= -->
+  <!-- ================= FULL VISOR & FLIGHT HUD (ZERO COLLISION, NO CONTROLS SHOWN) ================= -->
   <div id="hud" class="hud hidden">
-    <!-- Top Compass & Planetary Environment Bar -->
+    <!-- Top-Left: Quantum Hyperdrive Core & Crew Stamina Bars -->
+    <div class="hud-bar">
+      <div class="hud-label">QUANTUM HYPERDRIVE CORE</div>
+      <div class="hud-meter">
+        <div id="warp-meter-fill" class="meter-fill"></div>
+      </div>
+      <div id="warp-status" class="hud-status">HYPERDRIVE CORE STANDBY</div>
+
+      <div class="hud-label stamina-label">CREW STAMINA &amp; CIRCADIAN REST</div>
+      <div class="hud-meter stamina-meter">
+        <div id="stamina-meter-fill" class="meter-fill stamina-fill"></div>
+      </div>
+    </div>
+
+    <!-- Top-Center: Compass & Planetary Environment Bar -->
     <div class="hud-compass-bar">
       <div class="compass-pill">
         <span class="compass-label">HDG</span>
@@ -88,41 +152,20 @@
       </div>
       <div class="compass-pill">
         <span class="compass-label">SOLAR TIME</span>
-        <span id="hud-solar-time" class="compass-val">12:00</span>
+        <span id="hud-solar-time" class="compass-val">13:30</span>
       </div>
     </div>
 
-    <!-- Top-Left Quantum Hyperdrive Core & Crew Stamina Bars -->
-    <div class="hud-bar">
-      <div class="hud-label">QUANTUM HYPERDRIVE CORE</div>
-      <div class="hud-meter">
-        <div id="warp-meter-fill" class="meter-fill"></div>
-      </div>
-      <div id="warp-status" class="hud-status">HOLD SPACE TO CHARGE WARP</div>
-
-      <div class="hud-label stamina-label">CREW STAMINA &amp; CIRCADIAN REST</div>
-      <div class="hud-meter stamina-meter">
-        <div id="stamina-meter-fill" class="meter-fill stamina-fill"></div>
-      </div>
+    <!-- Top-Right: Compact Settings & Menu Buttons (Never collides with center compass!) -->
+    <div class="hud-top-right">
+      <button class="hud-btn" id="hud-btn-settings" title="Settings &amp; Controls">⚙️ Settings</button>
+      <button class="hud-btn" id="hud-btn-menu" title="Main Menu">☰ Menu</button>
     </div>
 
-    <!-- Top-Right Quick Action Bar -->
-    <div class="hud-actions">
-      <button class="hud-btn" id="hud-btn-warp" title="Engage Quantum Warp Cutscene (SPACE)">⚡ Warp</button>
-      <button class="hud-btn" id="hud-btn-planet" title="Cycle Colossal Planet Globe (P)">🪐 Next Planet (P)</button>
-      <button class="hud-btn" id="hud-btn-land" title="Animated Planetary Landing with Steam / Liftoff (L)">🛬 Land/Lift (L)</button>
-      <button class="hud-btn" id="hud-btn-ship-walk" title="Walk Around Inside Your Ship (I)">🚶 Ship Deck (I)</button>
-      <button class="hud-btn" id="hud-btn-sleep" title="Go to Captain's Bed &amp; Sleep (B)">🛏️ Sleep (B)</button>
-      <button class="hud-btn" id="hud-btn-foot" title="Walk on Planet &amp; Swim in Oceans (TAB)">🌊 Planet/Swim (TAB)</button>
-      <button class="hud-btn" id="hud-btn-hull" title="Switch Online 3D Spaceship Model (H)">🚀 Hull (H)</button>
-      <button class="hud-btn" id="hud-btn-cam" title="Cycle Flight Camera (C)">🎥 Cam (C)</button>
-      <button class="hud-btn" id="hud-btn-menu" title="Pause Menu (ESC)">☰ Menu</button>
-    </div>
+    <!-- Interactive Contextual Prompt (Station / Bed / Airlock) -->
+    <div id="hud-interact" class="hud-interact hidden">INTERACT</div>
 
-    <!-- Interactive Contextual Prompt (Pilot Seat / Captain's Bed / Holo-Table / Airlock / Ramp) -->
-    <div id="hud-interact" class="hud-interact hidden">[E] INTERACT</div>
-
-    <!-- Bottom-Left Physics & Telemetry Readout -->
+    <!-- Bottom-Left: Physics & Telemetry Readout -->
     <div class="hud-telemetry">
       <div class="hud-row">
         <div class="hud-label">VELOCITY</div>
@@ -131,19 +174,31 @@
       </div>
       <div class="hud-row">
         <div class="hud-label">ALTITUDE</div>
-        <div id="hud-altitude" class="hud-value">68.0</div>
+        <div id="hud-altitude" class="hud-value">2,480</div>
         <div id="hud-alt-unit" class="hud-unit">m ASL &bull; 1.00 G</div>
       </div>
       <div class="hud-row">
         <div class="hud-label">MODE</div>
-        <div id="hud-cam" class="hud-value">COCKPIT</div>
-        <div class="hud-unit" id="hud-flight-state">IN ORBIT</div>
+        <div id="hud-cam" class="hud-value">THIRD PERSON</div>
+        <div class="hud-unit" id="hud-flight-state">ORBITAL SPACE</div>
       </div>
       <div class="hud-row">
         <div class="hud-label">STAR SYSTEM</div>
         <div id="hud-system" class="hud-value">KEPLER-442b</div>
-        <div class="hud-unit" id="hud-biome">ARCHIPELAGO OCEAN WORLD</div>
+        <div class="hud-unit" id="hud-biome">SAPPHIRE OCEAN &amp; ROSE CONTINENTS</div>
       </div>
+    </div>
+
+    <!-- Bottom-Right: Quick Action Dock (No keybind clutter, zero collision!) -->
+    <div class="hud-actions">
+      <button class="hud-btn" id="hud-btn-warp">⚡ Warp</button>
+      <button class="hud-btn" id="hud-btn-planet">🪐 Next Planet</button>
+      <button class="hud-btn" id="hud-btn-land">🛬 Land / Lift</button>
+      <button class="hud-btn" id="hud-btn-ship-walk">🚶 Ship Deck</button>
+      <button class="hud-btn" id="hud-btn-sleep">🛏️ Sleep</button>
+      <button class="hud-btn" id="hud-btn-foot">🌊 Surface / Swim</button>
+      <button class="hud-btn" id="hud-btn-hull">🚀 Hull</button>
+      <button class="hud-btn" id="hud-btn-cam">🎥 Camera</button>
     </div>
 
     <!-- Center Visor Pitch Ladder & Reticle -->
@@ -151,10 +206,6 @@
       <div class="reticle-wing left-wing"></div>
       <div class="hud-crosshair"></div>
       <div class="reticle-wing right-wing"></div>
-    </div>
-
-    <div class="hud-help" id="hud-help">
-      <b>WASD / Shift</b>: Fly/Boost &bull; <b>I</b>: Walk in Ship &bull; <b>B</b>: Sleep in Bed &bull; <b>L</b>: Land/Liftoff &bull; <b>TAB</b>: Explore Planet &amp; Swim
     </div>
   </div>
 
@@ -165,10 +216,10 @@
       <div id="warp-subtext" class="warp-subtext">QUANTUM FOLD TELEMETRY ONLINE</div>
     </div>
     <div class="letterbox-bar bottom-bar">
-      <div class="cutscene-skip">CINEMATIC SEQUENCE ACTIVE &bull; PRESS <b>ENTER</b> TO SKIP</div>
+      <div class="cutscene-skip">CINEMATIC SEQUENCE ACTIVE</div>
     </div>
   </div>
 
-  <script type="module" src="js/core.js?v=7"></script>
+  <script type="module" src="js/core.js?v=8"></script>
 </body>
 </html>

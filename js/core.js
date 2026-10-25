@@ -15,10 +15,10 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
-import Audio from "./audio.js?v=7";
-import { UI } from "./ui.js?v=7";
-import { buildCockpit } from "./cockpit.js?v=7";
-import { buildShip } from "./ship.js?v=7";
+import Audio from "./audio.js?v=8";
+import { UI } from "./ui.js?v=8";
+import { buildCockpit } from "./cockpit.js?v=8";
+import { buildShip } from "./ship.js?v=8";
 import {
   PLANET_RADIUS,
   SYSTEMS,
@@ -28,12 +28,13 @@ import {
   getSurfaceY,
   getWaterSurfaceWorldY,
   spawnWaterRipple
-} from "./planet.js?v=7";
-import { WarpCutscene, FlightCutscene } from "./warp.js?v=7";
+} from "./planet.js?v=8";
+import { WarpCutscene, FlightCutscene } from "./warp.js?v=8";
 
 // ---------------- Constants & State ----------------
 const STATE = {
   MENU: "MENU",
+  SETTINGS: "SETTINGS",
   PLAYING: "PLAYING",
   SLEEPING: "SLEEPING",
   WARP: "WARP",
@@ -41,6 +42,7 @@ const STATE = {
   CREDITS: "CREDITS"
 };
 let state = STATE.MENU;
+let prevStateBeforeSettings = STATE.MENU;
 
 const CAM = {
   COCKPIT: "COCKPIT",
@@ -62,7 +64,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.18;
+renderer.toneMappingExposure = 1.05;
 
 const spaceBgColor = new THREE.Color(0x02040a);
 const atmosBgColor = new THREE.Color(0x0f2942);
@@ -87,9 +89,9 @@ const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.52,
-  0.4,
-  0.8
+  0.22,
+  0.35,
+  0.93
 );
 const outputPass = new OutputPass();
 composer.addPass(renderPass);
@@ -97,16 +99,16 @@ composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
 // ---------------- Scene Lighting & Solar Cycle ----------------
-const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x060b18, 0.16);
+const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x060b18, 0.14);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xffffff, 2.75);
+const sun = new THREE.DirectionalLight(0xffffff, 1.65);
 sun.position.set(-1450, 880, 2150);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
-const ambient = new THREE.AmbientLight(0x1e293b, 0.1);
+const ambient = new THREE.AmbientLight(0x1e293b, 0.08);
 scene.add(ambient);
 
 // Planetary Solar Clock (0..24 hours, advances continuously and jumps +8h when sleeping in bed!)
@@ -353,7 +355,7 @@ canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // ---------------- Visibility & Camera Mode Switching ----------------
 const syncVisibility = () => {
-  if (state === STATE.MENU || state === STATE.CREDITS) {
+  if (state === STATE.MENU || state === STATE.CREDITS || state === STATE.SETTINGS) {
     ship.visible = true;
     cockpit.visible = false;
     return;
@@ -386,19 +388,10 @@ const setCam = (mode) => {
 
   if (mode === CAM.SHIP_INTERIOR) {
     UI.setFlightState(shipState.landed ? "SHIP DECK (LANDED)" : "SHIP DECK (IN ORBIT)");
-    UI.setHelp(
-      "<b>WASD</b>: Walk Inside Ship &bull; <b>E</b>: Use Station (Seat / <b>Captain's Bed</b> / Holo-Table / Airlock) &bull; <b>B</b>: Sleep in Bed"
-    );
   } else if (mode === CAM.FOOT) {
     UI.setFlightState("PLANET & OCEAN");
-    UI.setHelp(
-      "<b>WASD / Shift</b>: Walk / Sprint / Swim &bull; <b>SPACE</b>: Jump / Swim Up &bull; Walk forward (+Z) down the Pier into the <b>Ocean</b>!"
-    );
   } else {
     UI.setFlightState(shipState.landed ? "LANDED ON PAD" : "IN ORBIT");
-    UI.setHelp(
-      "<b>WASD / Shift</b>: Fly &amp; Boost &bull; <b>I</b>: Walk Inside Ship &amp; Bed &bull; <b>B</b>: Sleep &bull; <b>L</b>: Land/Liftoff &bull; <b>TAB</b>: Planet &amp; Ocean"
-    );
   }
 };
 
@@ -622,9 +615,9 @@ const engageWarp = () => {
       state = STATE.PLAYING;
       UI.hideWarp();
       UI.setWarpMeter(0);
-      UI.setWarpStatus(`ARRIVED: ${nextSys.name} — PRESS L TO LAND`);
+      UI.setWarpStatus(`ARRIVED AT ${nextSys.name}`);
       if (camMode === CAM.FOOT) {
-        setCam(CAM.COCKPIT);
+        setCam(CAM.THIRD);
       } else {
         syncVisibility();
       }
@@ -638,10 +631,9 @@ const engageWarp = () => {
 };
 
 const cycleOnlineShipHull = () => {
-  if (state !== STATE.PLAYING) return;
   const hullName = ship.cycleHullModel ? ship.cycleHullModel() : "";
   Audio.sfx.switch();
-  if (camMode === CAM.COCKPIT || camMode === CAM.SHIP_INTERIOR) {
+  if (state === STATE.PLAYING && (camMode === CAM.COCKPIT || camMode === CAM.SHIP_INTERIOR)) {
     setCam(CAM.THIRD);
   }
   if (hullName) {
@@ -685,7 +677,7 @@ const chargeWarp = (dt) => {
       warpCharge = Math.max(0, warpCharge - 25 * dt);
       UI.setWarpMeter(warpCharge);
       if (warpCharge === 0) {
-        UI.setWarpStatus("HOLD SPACE TO CHARGE WARP");
+        UI.setWarpStatus("HYPERDRIVE CORE STANDBY");
         if (warpSfx) {
           try {
             warpSfx.stop();
@@ -766,6 +758,16 @@ window.addEventListener("keydown", (e) => {
       state = STATE.MENU;
       Audio.updateEngineHum(0, false);
       syncVisibility();
+    } else if (state === STATE.SETTINGS) {
+      UI.hideSettings();
+      if (prevStateBeforeSettings === STATE.PLAYING) {
+        UI.showHUD();
+        state = STATE.PLAYING;
+        syncVisibility();
+      } else {
+        UI.showMenu();
+        state = STATE.MENU;
+      }
     } else if (state === STATE.CREDITS) {
       UI.hideCredits();
       UI.showMenu();
@@ -973,6 +975,28 @@ UI.on("start", () => startNewOrSavedGame(false));
 UI.on("continue", () => startNewOrSavedGame(true));
 UI.on("load", () => startNewOrSavedGame(true));
 UI.on("planet", () => cyclePlanetSystem());
+UI.on("settings", () => {
+  isDraggingMouse = false;
+  if (state !== STATE.SETTINGS) {
+    prevStateBeforeSettings = state === STATE.PLAYING ? STATE.PLAYING : STATE.MENU;
+  }
+  state = STATE.SETTINGS;
+  Audio.updateEngineHum(0, false);
+  UI.showSettings("general");
+  syncVisibility();
+});
+UI.on("closeSettings", () => {
+  UI.hideSettings();
+  if (prevStateBeforeSettings === STATE.PLAYING) {
+    state = STATE.PLAYING;
+    UI.showHUD();
+    syncVisibility();
+  } else {
+    state = STATE.MENU;
+    UI.showMenu();
+    syncVisibility();
+  }
+});
 UI.on("credits", () => {
   state = STATE.CREDITS;
   UI.showCredits();
@@ -1056,8 +1080,13 @@ const update = (now) => {
     }
   }
 
-  // ---------- MENU / CREDITS ATTRACT SCENE ----------
-  if (state === STATE.MENU || state === STATE.CREDITS) {
+  // ---------- MENU / CREDITS / SETTINGS ATTRACT SCENE ----------
+  if (state === STATE.MENU || state === STATE.CREDITS || state === STATE.SETTINGS) {
+    if (state === STATE.SETTINGS && prevStateBeforeSettings === STATE.PLAYING) {
+      composer.render();
+      requestAnimationFrame(update);
+      return;
+    }
     menuOrbitT += dt * 0.25;
     shipState.pos.set(0, -1804.2, 4280);
     shipState.yaw = Math.sin(menuOrbitT * 0.5) * 0.12;
@@ -1281,18 +1310,18 @@ const update = (now) => {
     const x = shipWalkState.pos.x;
     const z = shipWalkState.pos.z;
     if (z < 1.1) {
-      UI.setInteractPrompt("[E] SIT IN PILOT SEAT (HELM CONTROL)");
+      UI.setInteractPrompt("PILOT SEAT // HELM CONTROL STATION");
     } else if (z >= 3.5 && z <= 5.85 && x > 0.05) {
       UI.setInteractPrompt(
-        "[E] LIE DOWN & SLEEP IN CAPTAIN'S BED (RESTORE STAMINA & +8H SOLAR)"
+        "CAPTAIN'S QUARTERS BED // RESTORE STAMINA & ADVANCE SOLAR CYCLE"
       );
     } else if (z >= 1.6 && z <= 4.6) {
-      UI.setInteractPrompt("[E] ASTROGATION HOLO-TABLE — ENGAGE QUANTUM WARP");
+      UI.setInteractPrompt("ASTROGATION HOLO-TABLE // QUANTUM WARP NAVIGATION");
     } else if (z > 6.2) {
       UI.setInteractPrompt(
         shipState.landed
-          ? "[E] OPEN AFT AIRLOCK — STEP OUT ONTO PLANET & OCEAN BEACH"
-          : "[E] LAND ON PLANET & STEP OUT AFT AIRLOCK"
+          ? "AFT AIRLOCK // PLANET SURFACE & OCEAN BEACH"
+          : "AFT AIRLOCK // SURFACE LANDING & EVA"
       );
     } else {
       UI.setInteractPrompt(null);
@@ -1461,9 +1490,9 @@ const update = (now) => {
 
     const distToRamp = Math.hypot(footState.pos.x, footState.pos.z - 3.5);
     if (distToRamp < 6.0) {
-      UI.setInteractPrompt("[E] WALK UP BOARDING RAMP INTO SHIP INTERIOR");
+      UI.setInteractPrompt("STARSHIP BOARDING RAMP // RETURN TO SHIP INTERIOR");
     } else if (footState.inWater) {
-      UI.setInteractPrompt("🌊 OCEAN BUOYANCY ACTIVE — SPACE: SWIM UP • WASD: SWIM");
+      UI.setInteractPrompt("🌊 OCEAN HYDRO-BUOYANCY // PLANETARY SEA");
     } else {
       UI.setInteractPrompt(null);
     }

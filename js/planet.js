@@ -13,7 +13,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
-import { makePlanetTextures, Textures } from "./textures.js?v=7";
+import { makePlanetTextures, Textures } from "./textures.js?v=8";
 
 export const PLANET_RADIUS = 1800;
 
@@ -265,7 +265,7 @@ const createJavaScriptPlanetGlobeMaps = (sys) => {
         cData[idx + 2] = Math.round(sys.oceanDeepRGB[2] * (1 - shelf) + sys.oceanShallowRGB[2] * shelf);
         cData[idx + 3] = 255;
 
-        rData[idx] = rData[idx + 1] = rData[idx + 2] = 65; // Smooth reflective ocean
+        rData[idx] = rData[idx + 1] = rData[idx + 2] = 175;
         rData[idx + 3] = 255;
         bData[idx] = bData[idx + 1] = bData[idx + 2] = 110;
         bData[idx + 3] = 255;
@@ -363,7 +363,7 @@ const createJavaScriptPlanetGlobeMaps = (sys) => {
             cData[dstIdx + 2] = Math.round(b * 0.84 + sys.atmosTintRGB[2] * 0.16);
             cData[dstIdx + 3] = 255;
 
-            rData[dstIdx] = rData[dstIdx + 1] = rData[dstIdx + 2] = 68;
+            rData[dstIdx] = rData[dstIdx + 1] = rData[dstIdx + 2] = 175;
             bData[dstIdx] = bData[dstIdx + 1] = bData[dstIdx + 2] = Math.round(100 + shelf * 30);
           } else {
             // Landmass: blend NASA continental relief with planet's rose/ochre/sage palette
@@ -465,11 +465,11 @@ const createJavaScriptCloudTexture = (seed = 1.0) => {
           const sx = (x + shiftX) % W;
           const sIdx = (y * W + sx) * 4;
           const dIdx = (y * W + x) * 4;
-          const nasaCloud = src[sIdx];
-          d[dIdx] = 252;
-          d[dIdx + 1] = 254;
+          const nasaCloud = src[sIdx + 3];
+          d[dIdx] = 248;
+          d[dIdx + 1] = 251;
           d[dIdx + 2] = 255;
-          d[dIdx + 3] = Math.min(255, Math.round(nasaCloud * 0.85 + d[dIdx + 3] * 0.25));
+          d[dIdx + 3] = Math.min(235, Math.round(nasaCloud * 0.92));
         }
       }
       ctx.putImageData(img, 0, 0);

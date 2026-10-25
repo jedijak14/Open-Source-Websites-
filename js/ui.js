@@ -1,10 +1,11 @@
 /**
- * Stellar Voyage — Full Visor & Flight HUD / Menu / Sleep / Cutscene Controller
+ * Stellar Voyage — Full Visor & Flight HUD / Menu / Settings (with Controls Tab) / Sleep / Cutscene Controller
  */
-import Audio from "./audio.js?v=7";
+import Audio from "./audio.js?v=8";
 
 export const UI = (() => {
   const menu = document.getElementById("menu");
+  const settings = document.getElementById("settings");
   const credits = document.getElementById("credits");
   const hud = document.getElementById("hud");
   const warpOverlay = document.getElementById("warp-overlay");
@@ -17,6 +18,12 @@ export const UI = (() => {
   const sleepSubtext = document.getElementById("sleep-subtext");
   const sleepProgressFill = document.getElementById("sleep-progress-fill");
 
+  const tabBtnGeneral = document.getElementById("tab-btn-general");
+  const tabBtnControls = document.getElementById("tab-btn-controls");
+  const panelGeneral = document.getElementById("settings-panel-general");
+  const panelControls = document.getElementById("settings-panel-controls");
+  const btnToggleMute = document.getElementById("btn-toggle-mute");
+
   const callbacks = {};
 
   const show = (el) => {
@@ -26,8 +33,23 @@ export const UI = (() => {
     if (el) el.classList.add("hidden");
   };
 
+  const setSettingsTab = (tab = "general") => {
+    if (tab === "controls") {
+      if (tabBtnControls) tabBtnControls.classList.add("active");
+      if (tabBtnGeneral) tabBtnGeneral.classList.remove("active");
+      show(panelControls);
+      hide(panelGeneral);
+    } else {
+      if (tabBtnGeneral) tabBtnGeneral.classList.add("active");
+      if (tabBtnControls) tabBtnControls.classList.remove("active");
+      show(panelGeneral);
+      hide(panelControls);
+    }
+  };
+
   const showMenu = () => {
     show(menu);
+    hide(settings);
     hide(hud);
     hide(credits);
     hide(warpOverlay);
@@ -36,8 +58,21 @@ export const UI = (() => {
   const hideMenu = () => {
     hide(menu);
   };
+  const showSettings = (defaultTab = "general") => {
+    setSettingsTab(defaultTab);
+    show(settings);
+    hide(menu);
+    hide(hud);
+    hide(credits);
+    hide(warpOverlay);
+    hide(sleepOverlay);
+  };
+  const hideSettings = () => {
+    hide(settings);
+  };
   const showCredits = () => {
     show(credits);
+    hide(settings);
     hide(menu);
     hide(hud);
     hide(warpOverlay);
@@ -46,6 +81,7 @@ export const UI = (() => {
   const hideCredits = () => hide(credits);
   const showHUD = () => {
     show(hud);
+    hide(settings);
     hide(menu);
     hide(credits);
     hide(warpOverlay);
@@ -61,6 +97,7 @@ export const UI = (() => {
     if (warpSubtext) warpSubtext.textContent = sublabel;
     show(warpOverlay);
     hide(hud);
+    hide(settings);
     hide(menu);
     hide(credits);
   };
@@ -115,8 +152,40 @@ export const UI = (() => {
   bind("btn-continue", "continue");
   bind("btn-load", "load");
   bind("btn-planet", "planet");
+  bind("btn-settings", "settings");
   bind("btn-credits", "credits");
   bind("btn-back-menu", "back");
+
+  bind("hud-btn-settings", "settings");
+  bind("hud-btn-menu", "hudMenu");
+  bind("btn-close-settings", "closeSettings");
+  bind("btn-settings-hull", "hudHull");
+  bind("btn-settings-planet", "planet");
+
+  if (tabBtnGeneral) {
+    tabBtnGeneral.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Audio.start();
+      Audio.sfx.click();
+      setSettingsTab("general");
+    });
+  }
+  if (tabBtnControls) {
+    tabBtnControls.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Audio.start();
+      Audio.sfx.click();
+      setSettingsTab("controls");
+    });
+  }
+  if (btnToggleMute) {
+    btnToggleMute.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Audio.start();
+      const muted = Audio.toggleMute();
+      btnToggleMute.textContent = muted ? "🔇 Sound: OFF" : "🔊 Sound: ON";
+    });
+  }
 
   bind("hud-btn-warp", "hudWarp");
   bind("hud-btn-planet", "planet");
@@ -126,7 +195,6 @@ export const UI = (() => {
   bind("hud-btn-foot", "hudFoot");
   bind("hud-btn-hull", "hudHull");
   bind("hud-btn-cam", "hudCam");
-  bind("hud-btn-menu", "hudMenu");
 
   const updateSaveState = (hasSave) => {
     const c = document.getElementById("btn-continue");
@@ -224,10 +292,7 @@ export const UI = (() => {
     const el = document.getElementById("hud-biome");
     if (el) el.textContent = txt;
   };
-  const setHelp = (html) => {
-    const el = document.getElementById("hud-help");
-    if (el) el.innerHTML = html;
-  };
+  const setHelp = () => {};
 
   return {
     on: (k, fn) => {
@@ -235,6 +300,9 @@ export const UI = (() => {
     },
     showMenu,
     hideMenu,
+    showSettings,
+    hideSettings,
+    setSettingsTab,
     showCredits,
     hideCredits,
     showHUD,
