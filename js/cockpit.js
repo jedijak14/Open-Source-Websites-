@@ -11,9 +11,9 @@
  */
 
 import * as THREE from "three";
-import { Textures } from "./textures.js";
-import Audio from "./audio.js";
-import { sharedGLTFLoader } from "./ship.js";
+import { Textures } from "./textures.js?v=7";
+import Audio from "./audio.js?v=7";
+import { sharedGLTFLoader } from "./ship.js?v=7";
 
 export const buildCockpit = () => {
   const cockpit = new THREE.Group();

@@ -15,10 +15,10 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 
-import Audio from "./audio.js";
-import { UI } from "./ui.js";
-import { buildCockpit } from "./cockpit.js";
-import { buildShip } from "./ship.js";
+import Audio from "./audio.js?v=7";
+import { UI } from "./ui.js?v=7";
+import { buildCockpit } from "./cockpit.js?v=7";
+import { buildShip } from "./ship.js?v=7";
 import {
   PLANET_RADIUS,
   SYSTEMS,
@@ -28,8 +28,8 @@ import {
   getSurfaceY,
   getWaterSurfaceWorldY,
   spawnWaterRipple
-} from "./planet.js";
-import { WarpCutscene, FlightCutscene } from "./warp.js";
+} from "./planet.js?v=7";
+import { WarpCutscene, FlightCutscene } from "./warp.js?v=7";
 
 // ---------------- Constants & State ----------------
 const STATE = {
@@ -97,16 +97,16 @@ composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
 // ---------------- Scene Lighting & Solar Cycle ----------------
-const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x1e293b, 0.88);
+const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x060b18, 0.16);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xfffbeb, 1.8);
-sun.position.set(1400, 1850, 950);
+const sun = new THREE.DirectionalLight(0xffffff, 2.75);
+sun.position.set(-1450, 880, 2150);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
-const ambient = new THREE.AmbientLight(0x334155, 0.68);
+const ambient = new THREE.AmbientLight(0x1e293b, 0.1);
 scene.add(ambient);
 
 // Planetary Solar Clock (0..24 hours, advances continuously and jumps +8h when sleeping in bed!)
@@ -120,16 +120,14 @@ const updateSolarCycle = (dt) => {
   // creating the exact right-side crescent terminator shadow from NASA orbital imagery!)
   const phase = ((solarHours - 13.5) / 24.0) * Math.PI * 2.0;
   const baseAzimuth = -0.58 + phase;
-  const sx = Math.sin(baseAzimuth) * 1900;
-  const sy = 760 + Math.sin(phase) * 450;
-  const sz = Math.cos(baseAzimuth) * 1900;
+  const sx = Math.sin(baseAzimuth) * 2400;
+  const sy = 950 + Math.sin(phase) * 550;
+  const sz = Math.cos(baseAzimuth) * 2400;
   sun.position.set(sx, sy, sz);
 
   const sunDir = sun.position.clone().normalize();
-  if (planet) {
-    if (planet.globeMat) planet.globeMat.uniforms.uSunDir.value.copy(sunDir);
-    if (planet.outerAtmosMat) planet.outerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
-    if (planet.oceanMat) planet.oceanMat.uniforms.uSunDir.value.copy(sunDir);
+  if (planet && planet.outerAtmosMat) {
+    planet.outerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
   }
 };
 
@@ -789,6 +787,7 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "KeyL") toggleLandOrTakeoff();
     if (e.code === "KeyC") cycleCam();
     if (e.code === "KeyH") cycleOnlineShipHull();
+    if (e.code === "KeyP") cyclePlanetSystem();
     if (e.code === "Tab" || e.code === "KeyT") {
       e.preventDefault();
       togglePlanetSurfaceWalk();
@@ -878,13 +877,35 @@ const updateAtmosphericEnvironment = (viewerWorldPos, isUnderwater = false) => {
   atmosBgColor.setHex(sys.atmosHex || 0x38bdf8).multiplyScalar(0.32 * daylight);
   blendedSkyColor.copy(spaceBgColor).lerp(atmosBgColor, smoothAtmos);
   scene.fog.color.copy(blendedSkyColor);
-  scene.fog.density = THREE.MathUtils.lerp(0.00007, 0.0014, smoothAtmos);
+  scene.fog.density = THREE.MathUtils.lerp(0.00004, 0.0014, smoothAtmos);
 
+  const inCabin = camMode === CAM.SHIP_INTERIOR || camMode === CAM.COCKPIT;
   hemi.color.setHex(sys.horizonHex || sys.atmosHex || 0x7dd3fc);
-  hemi.intensity = THREE.MathUtils.lerp(0.85, 1.4 * daylight, smoothAtmos);
+  hemi.intensity = inCabin
+    ? 0.55
+    : THREE.MathUtils.lerp(0.11, 1.35 * daylight, smoothAtmos);
+  ambient.intensity = inCabin
+    ? 0.45
+    : THREE.MathUtils.lerp(0.05, 0.55 * daylight, smoothAtmos);
   starMat.opacity = THREE.MathUtils.lerp(0.95, 0.22, smoothAtmos * daylight);
 
   return altitude;
+};
+
+const cyclePlanetSystem = () => {
+  const nextIdx = (currentSystemIndex + 1) % SYSTEMS.length;
+  loadPlanetSystem(nextIdx);
+  if (!shipState.landed && camMode !== CAM.FOOT) {
+    shipState.pos.copy(ORBIT_SHIP_POS);
+    shipState.vel.set(0, 0, 0);
+    shipState.yaw = 0;
+    shipState.pitch = 0;
+    shipState.roll = 0;
+    updateShipTransform();
+  }
+  const sys = SYSTEMS[nextIdx];
+  UI.setWarpStatus(`ACTIVE PLANET: ${sys.name} (${sys.biome})`);
+  Audio.sfx.arrive();
 };
 
 // ---------------- Menu & HUD Button Wiring ----------------
@@ -909,9 +930,9 @@ const startNewOrSavedGame = (useSaved = false) => {
     UI.hideMenu();
     UI.showHUD();
     state = STATE.PLAYING;
-    setCam(CAM.COCKPIT);
+    setCam(CAM.THIRD);
   } else {
-    loadPlanetSystem(0);
+    loadPlanetSystem(currentSystemIndex);
     shipState.landed = false;
     crewStamina = 100;
     UI.setStamina(100);
@@ -940,7 +961,7 @@ const startNewOrSavedGame = (useSaved = false) => {
 
         state = STATE.PLAYING;
         UI.hideWarp();
-        setCam(CAM.COCKPIT);
+        setCam(CAM.THIRD);
         saveGame();
       },
       (subText) => UI.setWarpSubtext(subText)
@@ -951,6 +972,7 @@ const startNewOrSavedGame = (useSaved = false) => {
 UI.on("start", () => startNewOrSavedGame(false));
 UI.on("continue", () => startNewOrSavedGame(true));
 UI.on("load", () => startNewOrSavedGame(true));
+UI.on("planet", () => cyclePlanetSystem());
 UI.on("credits", () => {
   state = STATE.CREDITS;
   UI.showCredits();

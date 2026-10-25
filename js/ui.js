@@ -1,7 +1,7 @@
 /**
  * Stellar Voyage — Full Visor & Flight HUD / Menu / Sleep / Cutscene Controller
  */
-import Audio from "./audio.js";
+import Audio from "./audio.js?v=7";
 
 export const UI = (() => {
   const menu = document.getElementById("menu");
@@ -114,10 +114,12 @@ export const UI = (() => {
   bind("btn-start", "start");
   bind("btn-continue", "continue");
   bind("btn-load", "load");
+  bind("btn-planet", "planet");
   bind("btn-credits", "credits");
   bind("btn-back-menu", "back");
 
   bind("hud-btn-warp", "hudWarp");
+  bind("hud-btn-planet", "planet");
   bind("hud-btn-land", "hudLand");
   bind("hud-btn-ship-walk", "hudShipWalk");
   bind("hud-btn-sleep", "hudSleep");

@@ -221,40 +221,87 @@ const starColor = () => makeColor((c, s) => {
   }
 });
 
-export const makePlanetTextures = (seed = 1, base = [0.22, 0.42, 0.34], accent = [0.42, 0.65, 0.48]) => {
+export const makePlanetTextures = (
+  seed = 1,
+  base = [0.22, 0.42, 0.34],
+  accent = [0.42, 0.65, 0.48]
+) => {
+  if (base && !Array.isArray(base) && base.c1 && base.c2) {
+    accent = base.c2.map((v) => v / 255);
+    base = base.c1.map((v) => v / 255);
+  }
   rng.set(seed * 7919 + 101);
   const colPixels = makeColor((c, s) => {
     drawRect(0, 0, s, s, base[0], base[1], base[2]);
     for (let i = 0; i < 110; i++) {
-      const x = rng.int(0, s), y = rng.int(0, s);
-      drawRect(x, y, rng.range(10, 48), rng.range(4, 16), accent[0], accent[1], accent[2], 0.55);
+      const x = rng.int(0, s),
+        y = rng.int(0, s);
+      drawRect(
+        x,
+        y,
+        rng.range(10, 48),
+        rng.range(4, 16),
+        accent[0],
+        accent[1],
+        accent[2],
+        0.55
+      );
     }
     for (let i = 0; i < 35; i++) {
-      drawRect(rng.int(0, s), rng.int(0, s), rng.range(18, 70), rng.range(2, 5), base[0] * 0.65, base[1] * 0.65, base[2] * 0.65, 0.5);
+      drawRect(
+        rng.int(0, s),
+        rng.int(0, s),
+        rng.range(18, 70),
+        rng.range(2, 5),
+        base[0] * 0.65,
+        base[1] * 0.65,
+        base[2] * 0.65,
+        0.5
+      );
     }
   });
   const normPixels = makeNormal((c, s) => {
     drawRect(0, 0, s, s, 0.5, 0.5, 1);
     for (let i = 0; i < 55; i++) {
-      const x = rng.int(0, s), y = rng.int(0, s);
+      const x = rng.int(0, s),
+        y = rng.int(0, s);
       drawRect(x, y, rng.range(10, 45), rng.range(6, 20), 0.56, 0.54, 0.9, 0.65);
     }
   });
   const roughPixels = makeScalar((c, s) => {
     drawRect(0, 0, s, s, 0.68, 0.68, 0.68);
     for (let i = 0; i < 40; i++) {
-      drawRect(rng.int(0, s), rng.int(0, s), rng.range(8, 30), rng.range(4, 12), 0.45, 0.45, 0.45, 0.6);
+      drawRect(
+        rng.int(0, s),
+        rng.int(0, s),
+        rng.range(8, 30),
+        rng.range(4, 12),
+        0.45,
+        0.45,
+        0.45,
+        0.6
+      );
     }
   }, true);
+  const color = toDataTexture(colPixels);
+  const normal = toDataTexture(normPixels);
+  const rough = toDataTexture(roughPixels);
   return {
-    color: toDataTexture(colPixels),
-    normal: toDataTexture(normPixels),
-    rough: toDataTexture(roughPixels)
+    color,
+    normal,
+    rough,
+    map: color,
+    bump: rough
   };
 };
 
+const sharedMetalColorTex = toDataTexture(metalColor());
+const sharedMetalNormalTex = toDataTexture(metalNormal());
+const sharedMetalRoughTex = toDataTexture(metalRough());
+
 export const Textures = {
   size,
+  metalPlate: () => sharedMetalColorTex,
   metal: { color: metalColor(), normal: metalNormal(), roughness: metalRough() },
   red: { color: redColor(), normal: redNormal(), roughness: redRough() },
   glow: { color: glowColor(), normal: glowNormal(), roughness: glowRough() },
@@ -264,9 +311,9 @@ export const Textures = {
   toDataTexture,
   // pre-built Three textures
   three: {
-    metalColor: toDataTexture(metalColor()),
-    metalNormal: toDataTexture(metalNormal()),
-    metalRough: toDataTexture(metalRough()),
+    metalColor: sharedMetalColorTex,
+    metalNormal: sharedMetalNormalTex,
+    metalRough: sharedMetalRoughTex,
     redColor: toDataTexture(redColor()),
     redNormal: toDataTexture(redNormal()),
     redRough: toDataTexture(redRough()),

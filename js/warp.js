@@ -6,7 +6,7 @@
 // ============================================================================
 
 import * as THREE from "three";
-import Audio from "./audio.js";
+import Audio from "./audio.js?v=7";
 
 // ============================================================================
 // 1. MULTI-SHOT QUANTUM WARP CUTSCENE

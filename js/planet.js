@@ -1,22 +1,19 @@
 /**
- * Stellar Voyage — Photorealistic Colossal Planets (R = 1800) & Gerstner Ocean Physics
+ * Stellar Voyage — Colossal Photorealistic Planets (R = 1800) & JavaScript Ocean Physics
  * Features:
- * - Full-Screen Orbital Scale (R = 1800, viewed from orbital vantage so every planet
- *   looms as a massive photorealistic globe filling ~88% of the viewport like NASA imagery)
- * - Custom GLSL 4K NASA Planetary Globe Shader (earth_day_4096.jpg, earth_atmos_2048.jpg,
- *   earth_normal_2048.jpg, earth_specular_2048.jpg, earth_clouds_1024.png) with:
- *   - Deep cobalt/sapphire oceans with continental shelf bathymetry & sun specular sheen
- *   - Multi-toned photorealistic continents (rose-terracotta plateaus, olive lowlands, mountain normal relief)
- *   - Swirling white cyclone cloud systems casting real cloud shadows onto the ocean below
- *   - Internal Rayleigh aerial perspective haze + crisp atmospheric limb glow + smooth right-side day/night terminator
- * - Seamless Surface & Ocean Exploration Zone at the Starport Landing Site with:
- *   - 4-Wave Gerstner Ocean Shader, Archimedes Water Buoyancy, Ripples, Floating Buoys & Marine Fauna
+ * - Pure JavaScript + Three.js PBR Planetary Globe Generator (zero fragile raw shader dependencies)
+ * - Immediate JS Canvas 2D Continental/Bathymetry/Cloud synthesis on Frame 1 +
+ *   automatic JavaScript pixel-compositing of 4K NASA satellite maps (earth_day_4096.jpg,
+ *   earth_specular_2048.jpg, earth_clouds_1024.png) for all 5 planets
+ * - Full-Screen Orbital Scale (R = 1800) with swirling cyclone clouds, cloud shadows,
+ *   Rayleigh blue atmospheric limb, and crisp right-side day/night terminator
+ * - JavaScript-Driven 3D Gerstner Ocean Mesh + Archimedes Water Buoyancy, Ripples & Marine Fauna
  */
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { DRACOLoader } from "three/addons/loaders/draco/DRACOLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
-import { makePlanetTextures, Textures } from "./textures.js";
+import { makePlanetTextures, Textures } from "./textures.js?v=7";
 
 export const PLANET_RADIUS = 1800;
 
@@ -25,26 +22,6 @@ const gltfLoader = new GLTFLoader();
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath("./vendor/three/examples/jsm/libs/draco/gltf/");
 gltfLoader.setDRACOLoader(dracoLoader);
-
-// Load high-resolution 4K NASA planetary textures once and share across systems
-const sharedPlanetMaps = (() => {
-  const loadTex = (url, srgb = true) => {
-    const t = texLoader.load(url);
-    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    return t;
-  };
-  return {
-    day4k: loadTex("assets/textures/earth_day_4096.jpg", true),
-    atmos2k: loadTex("assets/textures/earth_atmos_2048.jpg", true),
-    normal2k: loadTex("assets/textures/earth_normal_2048.jpg", false),
-    specular2k: loadTex("assets/textures/earth_specular_2048.jpg", false),
-    clouds1k: loadTex("assets/textures/earth_clouds_1024.png", true),
-    moon1k: loadTex("assets/textures/moon_1024.jpg", true),
-    mars: loadTex("assets/textures/mars.jpg", true),
-    europa: loadTex("assets/textures/europa.jpg", true)
-  };
-})();
 
 export const SYSTEMS = [
   {
@@ -55,24 +32,25 @@ export const SYSTEMS = [
     waterLevel: -0.35,
     gravity: 1.0,
     atmosPressure: "104 kPa O₂/N₂",
-    uvOffset: [0.0, 0.0],
-    uvScale: [1.0, 1.0],
-    oceanDeep: [0.19, 0.31, 0.69],
-    oceanShallow: [0.31, 0.48, 0.82],
-    landLow: [0.42, 0.49, 0.45],
-    landHigh: [0.68, 0.51, 0.56],
-    atmosColor: [0.46, 0.64, 0.98],
-    cloudOpacity: 0.88,
-    waterDeepHex: 0x0369a1,
-    waterShallowHex: 0x06b6d4,
+    uvShiftX: 0.0,
+    uvShiftY: 0.0,
+    flipX: false,
+    oceanDeepRGB: [52, 84, 178],
+    oceanShallowRGB: [88, 132, 216],
+    landLowRGB: [112, 128, 118],
+    landMidRGB: [168, 128, 138],
+    landHighRGB: [204, 168, 176],
+    atmosTintRGB: [118, 162, 248],
+    waterDeepHex: 0x1d4ed8,
+    waterShallowHex: 0x38bdf8,
     palette: {
-      c1: [14, 116, 144],
+      c1: [30, 64, 175],
       c2: [16, 185, 129],
-      c3: [6, 95, 70],
+      c3: [180, 130, 140],
       c4: [217, 119, 6]
     },
-    atmosHex: 0x5b8def,
-    horizonHex: 0x8bb4f8,
+    atmosHex: 0x6898f8,
+    horizonHex: 0x93c5fd,
     ringHex: null,
     animalStyle: "quadruped",
     gltfAnimals: [
@@ -83,31 +61,32 @@ export const SYSTEMS = [
   },
   {
     name: "GLIESE-667Cc",
-    biome: "CRIMSON SUPER-CONTINENTS & BASALT SEAS",
+    biome: "CRIMSON CONTINENTS & COBALT SEAS",
     seed: 2.7,
     hasWater: true,
     waterLevel: -0.45,
     gravity: 1.18,
     atmosPressure: "132 kPa CO₂/Ar",
-    uvOffset: [0.37, 0.14],
-    uvScale: [1.15, 1.05],
-    oceanDeep: [0.14, 0.22, 0.52],
-    oceanShallow: [0.25, 0.39, 0.68],
-    landLow: [0.62, 0.36, 0.28],
-    landHigh: [0.82, 0.52, 0.38],
-    atmosColor: [0.58, 0.62, 0.94],
-    cloudOpacity: 0.78,
-    waterDeepHex: 0x1e1b4b,
-    waterShallowHex: 0x4338ca,
+    uvShiftX: 0.36,
+    uvShiftY: 0.12,
+    flipX: true,
+    oceanDeepRGB: [42, 68, 156],
+    oceanShallowRGB: [78, 118, 204],
+    landLowRGB: [148, 92, 82],
+    landMidRGB: [192, 122, 102],
+    landHighRGB: [224, 168, 146],
+    atmosTintRGB: [132, 156, 242],
+    waterDeepHex: 0x1e3a8a,
+    waterShallowHex: 0x3b82f6,
     palette: {
       c1: [127, 29, 29],
       c2: [185, 28, 28],
       c3: [234, 88, 12],
       c4: [68, 64, 60]
     },
-    atmosHex: 0x7c83ec,
+    atmosHex: 0x7c96f4,
     horizonHex: 0xfda4af,
-    ringHex: 0xfb923c,
+    ringHex: null,
     animalStyle: "arachnid",
     gltfAnimals: [
       { file: "assets/models/stork.glb", scale: 0.02, yOffset: 3.1, grounded: false },
@@ -123,25 +102,26 @@ export const SYSTEMS = [
     waterLevel: -0.25,
     gravity: 0.92,
     atmosPressure: "96 kPa N₂/O₂",
-    uvOffset: [0.64, -0.18],
-    uvScale: [1.2, 1.1],
-    oceanDeep: [0.13, 0.35, 0.72],
-    oceanShallow: [0.24, 0.58, 0.86],
-    landLow: [0.28, 0.54, 0.44],
-    landHigh: [0.64, 0.56, 0.48],
-    atmosColor: [0.42, 0.7, 0.98],
-    cloudOpacity: 0.9,
-    waterDeepHex: 0x0c4a6e,
-    waterShallowHex: 0x0284c7,
+    uvShiftX: 0.62,
+    uvShiftY: -0.15,
+    flipX: false,
+    oceanDeepRGB: [40, 92, 186],
+    oceanShallowRGB: [76, 148, 226],
+    landLowRGB: [78, 134, 114],
+    landMidRGB: [146, 142, 128],
+    landHighRGB: [206, 188, 176],
+    atmosTintRGB: [110, 174, 250],
+    waterDeepHex: 0x0369a1,
+    waterShallowHex: 0x06b6d4,
     palette: {
       c1: [30, 58, 138],
       c2: [56, 189, 248],
       c3: [125, 211, 252],
       c4: [224, 242, 254]
     },
-    atmosHex: 0x38bdf8,
+    atmosHex: 0x56a8f8,
     horizonHex: 0xbae6fd,
-    ringHex: 0x7dd3fc,
+    ringHex: null,
     animalStyle: "strider",
     gltfAnimals: [
       { file: "assets/models/parrot.glb", scale: 0.022, yOffset: 2.6, grounded: false },
@@ -157,14 +137,15 @@ export const SYSTEMS = [
     waterLevel: -0.28,
     gravity: 0.86,
     atmosPressure: "118 kPa O₂/Ne",
-    uvOffset: [0.22, 0.42],
-    uvScale: [0.95, 1.05],
-    oceanDeep: [0.18, 0.27, 0.68],
-    oceanShallow: [0.34, 0.46, 0.85],
-    landLow: [0.48, 0.44, 0.58],
-    landHigh: [0.74, 0.54, 0.62],
-    atmosColor: [0.52, 0.62, 0.99],
-    cloudOpacity: 0.86,
+    uvShiftX: 0.24,
+    uvShiftY: 0.28,
+    flipX: true,
+    oceanDeepRGB: [48, 76, 176],
+    oceanShallowRGB: [92, 126, 218],
+    landLowRGB: [124, 116, 148],
+    landMidRGB: [182, 136, 158],
+    landHighRGB: [218, 182, 196],
+    atmosTintRGB: [128, 158, 250],
     waterDeepHex: 0x1e3a8a,
     waterShallowHex: 0x0ea5e9,
     palette: {
@@ -173,7 +154,7 @@ export const SYSTEMS = [
       c3: [16, 185, 129],
       c4: [244, 114, 182]
     },
-    atmosHex: 0x6b8afd,
+    atmosHex: 0x7292fc,
     horizonHex: 0xddd6fe,
     ringHex: null,
     animalStyle: "floater",
@@ -191,14 +172,15 @@ export const SYSTEMS = [
     waterLevel: -0.32,
     gravity: 1.32,
     atmosPressure: "148 kPa N₂/CH₄",
-    uvOffset: [0.51, -0.33],
-    uvScale: [1.1, 0.95],
-    oceanDeep: [0.16, 0.3, 0.66],
-    oceanShallow: [0.32, 0.56, 0.86],
-    landLow: [0.58, 0.66, 0.75],
-    landHigh: [0.85, 0.88, 0.94],
-    atmosColor: [0.48, 0.68, 0.99],
-    cloudOpacity: 0.92,
+    uvShiftX: 0.52,
+    uvShiftY: -0.22,
+    flipX: false,
+    oceanDeepRGB: [44, 82, 174],
+    oceanShallowRGB: [88, 144, 224],
+    landLowRGB: [138, 154, 174],
+    landMidRGB: [186, 196, 212],
+    landHighRGB: [232, 238, 248],
+    atmosTintRGB: [124, 172, 252],
     waterDeepHex: 0x0f172a,
     waterShallowHex: 0x0284c7,
     palette: {
@@ -207,9 +189,9 @@ export const SYSTEMS = [
       c3: [245, 158, 11],
       c4: [253, 224, 71]
     },
-    atmosHex: 0x60a5fa,
-    horizonHex: 0xfef08a,
-    ringHex: 0x93c5fd,
+    atmosHex: 0x68a8fc,
+    horizonHex: 0xe0f2fe,
+    ringHex: null,
     animalStyle: "beetle",
     gltfAnimals: [
       { file: "assets/models/stork.glb", scale: 0.022, yOffset: 2.8, grounded: false },
@@ -220,189 +202,298 @@ export const SYSTEMS = [
 ];
 
 // ============================================================================
-// 1. PHOTOREALISTIC 4K NASA + GLSL PLANETARY GLOBE SHADER
+// 1. PURE JAVASCRIPT PHOTOREALISTIC GLOBE & CLOUD CANVAS COMPOSITOR
 // ============================================================================
-const createPlanetGlobeMaterial = (sys) => {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uDayTex: { value: sharedPlanetMaps.day4k },
-      uAtmosTex: { value: sharedPlanetMaps.atmos2k },
-      uNormalTex: { value: sharedPlanetMaps.normal2k },
-      uSpecTex: { value: sharedPlanetMaps.specular2k },
-      uCloudTex: { value: sharedPlanetMaps.clouds1k },
-      uSunDir: { value: new THREE.Vector3(-0.52, 0.34, 0.78).normalize() },
-      uTime: { value: 0 },
-      uUvOffset: { value: new THREE.Vector2(sys.uvOffset[0], sys.uvOffset[1]) },
-      uUvScale: { value: new THREE.Vector2(sys.uvScale[0], sys.uvScale[1]) },
-      uOceanDeep: { value: new THREE.Color(...sys.oceanDeep) },
-      uOceanShallow: { value: new THREE.Color(...sys.oceanShallow) },
-      uLandLow: { value: new THREE.Color(...sys.landLow) },
-      uLandHigh: { value: new THREE.Color(...sys.landHigh) },
-      uAtmosColor: { value: new THREE.Color(...sys.atmosColor) },
-      uCloudOpacity: { value: sys.cloudOpacity }
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      varying vec3 vWorldNormal;
-      varying vec3 vWorldPos;
-      varying vec3 vViewPos;
+const jsNoise2D = (x, y, seed = 1.0) => {
+  const n =
+    Math.sin(x * 1.7 + seed) * Math.cos(y * 1.7 - seed) * 0.5 +
+    Math.sin(x * 3.9 - y * 2.8 + seed * 1.7) * 0.25 +
+    Math.cos(x * 8.3 + y * 7.1 - seed * 2.3) * 0.125 +
+    Math.sin(x * 17.1 - y * 15.3 + seed * 3.1) * 0.0625;
+  return n * 0.5 + 0.5;
+};
 
-      void main() {
-        vUv = uv;
-        vec4 worldPos = modelMatrix * vec4(position, 1.0);
-        vWorldPos = worldPos.xyz;
-        vWorldNormal = normalize(mat3(modelMatrix) * normal);
-        vec4 mvPos = viewMatrix * worldPos;
-        vViewPos = -mvPos.xyz;
-        gl_Position = projectionMatrix * mvPos;
+const createJavaScriptPlanetGlobeMaps = (sys) => {
+  const W = 1024;
+  const H = 512;
+
+  const colorCanvas = document.createElement("canvas");
+  colorCanvas.width = W;
+  colorCanvas.height = H;
+  const colorCtx = colorCanvas.getContext("2d");
+
+  const roughCanvas = document.createElement("canvas");
+  roughCanvas.width = W;
+  roughCanvas.height = H;
+  const roughCtx = roughCanvas.getContext("2d");
+
+  const bumpCanvas = document.createElement("canvas");
+  bumpCanvas.width = W;
+  bumpCanvas.height = H;
+  const bumpCtx = bumpCanvas.getContext("2d");
+
+  // Step 1: Immediate JavaScript Procedural Synthesis (so Frame 1 is 100% textured!)
+  const colorImg = colorCtx.createImageData(W, H);
+  const roughImg = roughCtx.createImageData(W, H);
+  const bumpImg = bumpCtx.createImageData(W, H);
+  const cData = colorImg.data;
+  const rData = roughImg.data;
+  const bData = bumpImg.data;
+
+  for (let y = 0; y < H; y++) {
+    const v = y / H;
+    const lat = (v - 0.5) * Math.PI;
+    const cosLat = Math.cos(lat);
+    for (let x = 0; x < W; x++) {
+      const u = x / W;
+      const lon = u * Math.PI * 2;
+
+      const nx = Math.cos(lon) * cosLat * 2.2;
+      const ny = Math.sin(lat) * 2.2;
+      const nz = Math.sin(lon) * cosLat * 2.2;
+
+      const cont = jsNoise2D(nx + ny * 0.6, nz - ny * 0.4, sys.seed);
+      const detail = jsNoise2D(nx * 3.4, nz * 3.4 + ny * 2.1, sys.seed * 2.1);
+      const elev = cont * 0.72 + detail * 0.28;
+
+      const idx = (y * W + x) * 4;
+      if (elev < 0.54) {
+        // Ocean with bathymetric shelf ridges
+        const shelf = Math.max(0, Math.min(1, (elev - 0.34) / 0.2));
+        cData[idx] = Math.round(sys.oceanDeepRGB[0] * (1 - shelf) + sys.oceanShallowRGB[0] * shelf);
+        cData[idx + 1] = Math.round(sys.oceanDeepRGB[1] * (1 - shelf) + sys.oceanShallowRGB[1] * shelf);
+        cData[idx + 2] = Math.round(sys.oceanDeepRGB[2] * (1 - shelf) + sys.oceanShallowRGB[2] * shelf);
+        cData[idx + 3] = 255;
+
+        rData[idx] = rData[idx + 1] = rData[idx + 2] = 65; // Smooth reflective ocean
+        rData[idx + 3] = 255;
+        bData[idx] = bData[idx + 1] = bData[idx + 2] = 110;
+        bData[idx + 3] = 255;
+      } else {
+        // Continent with rose/ochre highlands and olive lowlands
+        const hNorm = Math.min(1, (elev - 0.54) / 0.32);
+        const lowToMid = Math.min(1, hNorm * 1.6);
+        const midToHigh = Math.max(0, (hNorm - 0.5) * 2.0);
+        let r = sys.landLowRGB[0] * (1 - lowToMid) + sys.landMidRGB[0] * lowToMid;
+        let g = sys.landLowRGB[1] * (1 - lowToMid) + sys.landMidRGB[1] * lowToMid;
+        let b = sys.landLowRGB[2] * (1 - lowToMid) + sys.landMidRGB[2] * lowToMid;
+
+        r = r * (1 - midToHigh) + sys.landHighRGB[0] * midToHigh;
+        g = g * (1 - midToHigh) + sys.landHighRGB[1] * midToHigh;
+        b = b * (1 - midToHigh) + sys.landHighRGB[2] * midToHigh;
+
+        cData[idx] = Math.round(r);
+        cData[idx + 1] = Math.round(g);
+        cData[idx + 2] = Math.round(b);
+        cData[idx + 3] = 255;
+
+        rData[idx] = rData[idx + 1] = rData[idx + 2] = 215;
+        rData[idx + 3] = 255;
+        const bumpVal = Math.min(255, Math.round(128 + hNorm * 120));
+        bData[idx] = bData[idx + 1] = bData[idx + 2] = bumpVal;
+        bData[idx + 3] = 255;
       }
-    `,
-    fragmentShader: `
-      uniform sampler2D uDayTex;
-      uniform sampler2D uAtmosTex;
-      uniform sampler2D uNormalTex;
-      uniform sampler2D uSpecTex;
-      uniform sampler2D uCloudTex;
-      uniform vec3 uSunDir;
-      uniform float uTime;
-      uniform vec2 uUvOffset;
-      uniform vec2 uUvScale;
-      uniform vec3 uOceanDeep;
-      uniform vec3 uOceanShallow;
-      uniform vec3 uLandLow;
-      uniform vec3 uLandHigh;
-      uniform vec3 uAtmosColor;
-      uniform float uCloudOpacity;
+    }
+  }
 
-      varying vec2 vUv;
-      varying vec3 vWorldNormal;
-      varying vec3 vWorldPos;
-      varying vec3 vViewPos;
+  colorCtx.putImageData(colorImg, 0, 0);
+  roughCtx.putImageData(roughImg, 0, 0);
+  bumpCtx.putImageData(bumpImg, 0, 0);
 
-      // Fast procedural hash & FBM for bathymetry and fine cloud swirls
-      float hash(vec2 p) {
-        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-      }
+  const colorTex = new THREE.CanvasTexture(colorCanvas);
+  colorTex.colorSpace = THREE.SRGBColorSpace;
+  colorTex.wrapS = colorTex.wrapT = THREE.RepeatWrapping;
 
-      float noise(vec2 p) {
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(
-          mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
-          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-          u.y
-        );
-      }
+  const roughTex = new THREE.CanvasTexture(roughCanvas);
+  roughTex.wrapS = roughTex.wrapT = THREE.RepeatWrapping;
 
-      float fbm(vec2 p) {
-        float v = 0.0;
-        float a = 0.5;
-        for (int i = 0; i < 4; i++) {
-          v += a * noise(p);
-          p *= 2.07;
-          a *= 0.5;
+  const bumpTex = new THREE.CanvasTexture(bumpCanvas);
+  bumpTex.wrapS = bumpTex.wrapT = THREE.RepeatWrapping;
+
+  // Step 2: JavaScript Asynchronous 4K NASA Satellite Map Compositor
+  // Blends real NASA continental geography & bathymetry into the canvas texture!
+  const dayImgEl = new Image();
+  const specImgEl = new Image();
+  let loadedCount = 0;
+
+  const onBothLoaded = () => {
+    loadedCount++;
+    if (loadedCount < 2) return;
+    try {
+      const tmpDay = document.createElement("canvas");
+      tmpDay.width = W;
+      tmpDay.height = H;
+      const dCtx = tmpDay.getContext("2d");
+      dCtx.drawImage(dayImgEl, 0, 0, W, H);
+      const dayPixels = dCtx.getImageData(0, 0, W, H).data;
+
+      const tmpSpec = document.createElement("canvas");
+      tmpSpec.width = W;
+      tmpSpec.height = H;
+      const sCtx = tmpSpec.getContext("2d");
+      sCtx.drawImage(specImgEl, 0, 0, W, H);
+      const specPixels = sCtx.getImageData(0, 0, W, H).data;
+
+      const shiftX = Math.floor(((sys.uvShiftX || 0) % 1) * W + W) % W;
+      const shiftY = Math.floor(((sys.uvShiftY || 0) % 1) * H + H) % H;
+
+      for (let y = 0; y < H; y++) {
+        const sy = (y + shiftY) % H;
+        for (let x = 0; x < W; x++) {
+          const sx = sys.flipX ? (W - 1 - ((x + shiftX) % W)) : (x + shiftX) % W;
+          const srcIdx = (sy * W + sx) * 4;
+          const dstIdx = (y * W + x) * 4;
+
+          const dr = dayPixels[srcIdx];
+          const dg = dayPixels[srcIdx + 1];
+          const db = dayPixels[srcIdx + 2];
+          const isOcean = specPixels[srcIdx] > 95; // NASA specular mask: white = ocean, black = land
+
+          if (isOcean) {
+            // Bathymetry from NASA blue channel + procedural ridges
+            const bathy = Math.min(1, Math.max(0, (db - 40) / 135));
+            const shelf = bathy * 0.72 + (bData[dstIdx] / 255) * 0.28;
+            const r = sys.oceanDeepRGB[0] * (1 - shelf) + sys.oceanShallowRGB[0] * shelf;
+            const g = sys.oceanDeepRGB[1] * (1 - shelf) + sys.oceanShallowRGB[1] * shelf;
+            const b = sys.oceanDeepRGB[2] * (1 - shelf) + sys.oceanShallowRGB[2] * shelf;
+
+            // Blend subtle Rayleigh atmospheric tint like NASA orbital photography
+            cData[dstIdx] = Math.round(r * 0.84 + sys.atmosTintRGB[0] * 0.16);
+            cData[dstIdx + 1] = Math.round(g * 0.84 + sys.atmosTintRGB[1] * 0.16);
+            cData[dstIdx + 2] = Math.round(b * 0.84 + sys.atmosTintRGB[2] * 0.16);
+            cData[dstIdx + 3] = 255;
+
+            rData[dstIdx] = rData[dstIdx + 1] = rData[dstIdx + 2] = 68;
+            bData[dstIdx] = bData[dstIdx + 1] = bData[dstIdx + 2] = Math.round(100 + shelf * 30);
+          } else {
+            // Landmass: blend NASA continental relief with planet's rose/ochre/sage palette
+            const desertFactor = Math.min(1, Math.max(0, (dr - dg * 0.65) / 110));
+            const luma = (dr * 0.35 + dg * 0.45 + db * 0.2) / 255;
+
+            let lr = sys.landLowRGB[0] * (1 - desertFactor) + sys.landMidRGB[0] * desertFactor;
+            let lg = sys.landLowRGB[1] * (1 - desertFactor) + sys.landMidRGB[1] * desertFactor;
+            let lb = sys.landLowRGB[2] * (1 - desertFactor) + sys.landMidRGB[2] * desertFactor;
+
+            // Highlight mountain cordilleras & plateaus
+            const highMix = Math.max(0, (luma - 0.45) * 1.4);
+            lr = lr * (1 - highMix) + sys.landHighRGB[0] * highMix;
+            lg = lg * (1 - highMix) + sys.landHighRGB[1] * highMix;
+            lb = lb * (1 - highMix) + sys.landHighRGB[2] * highMix;
+
+            // Blend 35% raw NASA satellite color + 18% Rayleigh aerial perspective haze
+            lr = lr * 0.65 + dr * 0.35;
+            lg = lg * 0.65 + dg * 0.35;
+            lb = lb * 0.65 + db * 0.35;
+
+            cData[dstIdx] = Math.round(lr * 0.82 + sys.atmosTintRGB[0] * 0.18);
+            cData[dstIdx + 1] = Math.round(lg * 0.82 + sys.atmosTintRGB[1] * 0.18);
+            cData[dstIdx + 2] = Math.round(lb * 0.82 + sys.atmosTintRGB[2] * 0.18);
+            cData[dstIdx + 3] = 255;
+
+            rData[dstIdx] = rData[dstIdx + 1] = rData[dstIdx + 2] = 210;
+            const elevBump = Math.min(255, Math.round(128 + luma * 125));
+            bData[dstIdx] = bData[dstIdx + 1] = bData[dstIdx + 2] = elevBump;
+          }
         }
-        return v;
       }
 
-      void main() {
-        vec3 N = normalize(vWorldNormal);
-        vec3 V = normalize(cameraPosition - vWorldPos);
-        vec3 L = normalize(uSunDir);
+      colorCtx.putImageData(colorImg, 0, 0);
+      roughCtx.putImageData(roughImg, 0, 0);
+      bumpCtx.putImageData(bumpImg, 0, 0);
+      colorTex.needsUpdate = true;
+      roughTex.needsUpdate = true;
+      bumpTex.needsUpdate = true;
+    } catch (e) {}
+  };
 
-        // Planet-specific UV transform so each world has distinct continent shapes
-        vec2 pUv = vUv * uUvScale + uUvOffset;
+  dayImgEl.onload = onBothLoaded;
+  specImgEl.onload = onBothLoaded;
+  dayImgEl.src = "assets/textures/earth_day_4096.jpg";
+  specImgEl.src = "assets/textures/earth_specular_2048.jpg";
 
-        vec3 daySample = texture2D(uDayTex, pUv).rgb;
-        vec3 atmosSample = texture2D(uAtmosTex, pUv).rgb;
-        vec3 normSample = texture2D(uNormalTex, pUv).rgb * 2.0 - 1.0;
-        float specMask = texture2D(uSpecTex, pUv).r;
+  return { colorTex, roughTex, bumpTex };
+};
 
-        // Perturb normal slightly with continental mountain normal map
-        vec3 bumpN = normalize(N + vec3(normSample.x, normSample.y, 0.0) * 0.22);
+const createJavaScriptCloudTexture = (seed = 1.0) => {
+  const W = 1024;
+  const H = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
 
-        // Bathymetry & continental shelf variation in oceans
-        float bathy = fbm(pUv * 18.0);
-        float shelf = smoothstep(0.18, 0.65, (1.0 - specMask) * 0.6 + bathy * 0.55);
-        vec3 oceanCol = mix(uOceanDeep, uOceanShallow, shelf);
-        // Blend subtle real satellite ocean structure
-        oceanCol = mix(oceanCol, atmosSample * vec3(0.75, 0.88, 1.25), 0.25);
+  const img = ctx.createImageData(W, H);
+  const d = img.data;
+  for (let y = 0; y < H; y++) {
+    const v = y / H;
+    const lat = (v - 0.5) * Math.PI;
+    const cosLat = Math.cos(lat);
+    for (let x = 0; x < W; x++) {
+      const u = x / W;
+      const lon = u * Math.PI * 2;
+      const swirl = Math.sin(lon * 3.0 + lat * 4.0 + seed) * 0.35;
+      const n1 = jsNoise2D(Math.cos(lon + swirl) * cosLat * 3.2, Math.sin(lat) * 3.2, seed + 3.7);
+      const n2 = jsNoise2D(Math.sin(lon - swirl) * cosLat * 7.5, Math.cos(lat) * 7.5, seed + 8.1);
+      const c = Math.max(0, (n1 * 0.68 + n2 * 0.32 - 0.48) * 2.35);
+      const alpha = Math.min(255, Math.round(c * 245));
+      const idx = (y * W + x) * 4;
+      d[idx] = 250;
+      d[idx + 1] = 252;
+      d[idx + 2] = 255;
+      d[idx + 3] = alpha;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
 
-        // Photorealistic Continental Color Grading (rose/terracotta plateaus + sage lowlands)
-        float landElev = clamp(dot(daySample, vec3(0.38, 0.42, 0.2)) * 1.45, 0.0, 1.0);
-        float desertMask = smoothstep(0.28, 0.72, daySample.r - daySample.b * 0.45 + bathy * 0.25);
-        vec3 landCol = mix(uLandLow, uLandHigh, desertMask);
-        landCol = mix(landCol, daySample * 1.15, 0.42);
-        // Coastal shallow turquoise reef transition
-        float coastLine = smoothstep(0.35, 0.65, specMask);
-        vec3 surfaceAlbedo = mix(landCol, oceanCol, coastLine);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
 
-        // Swirling Cloud Layer (dual-sampled NASA cloud cyclone map + drift)
-        vec2 cloudUv1 = pUv + vec2(uTime * 0.0018, 0.0);
-        vec2 cloudUv2 = pUv * 1.65 - vec2(uTime * 0.0011, uTime * 0.0005);
-        float c1 = texture2D(uCloudTex, cloudUv1).r;
-        float c2 = texture2D(uCloudTex, cloudUv2).r;
-        float cloudDetail = fbm(cloudUv1 * 24.0);
-        float cloudAlpha = clamp((c1 * 0.82 + c2 * 0.34 * cloudDetail) * uCloudOpacity, 0.0, 0.96);
-
-        // Cloud shadow cast slightly offset onto ocean/continents below
-        vec2 shadowUv = cloudUv1 - vec2(0.0035, -0.0025);
-        float cShadow = texture2D(uCloudTex, shadowUv).r;
-        surfaceAlbedo *= (1.0 - cShadow * 0.32);
-
-        // Smooth Day/Night Terminator Lighting (matches NASA orbital photography)
-        float nDotL = dot(bumpN, L);
-        float smoothLight = smoothstep(-0.16, 0.28, nDotL);
-        float diffuse = clamp((nDotL + 0.12) / 1.12, 0.0, 1.0) * smoothLight;
-
-        // Subtle warm twilight band right along the terminator
-        float terminatorBand = smoothstep(-0.18, 0.02, nDotL) * (1.0 - smoothstep(0.02, 0.26, nDotL));
-        vec3 twilightTint = vec3(0.75, 0.42, 0.36) * terminatorBand * 0.18;
-
-        // Soft broad ocean sun specular sheen (like atmospheric scatter on ocean waves)
-        vec3 H = normalize(L + V);
-        float spec = pow(max(0.0, dot(bumpN, H)), 28.0) * coastLine * (1.0 - cloudAlpha * 0.85);
-        vec3 specCol = mix(uAtmosColor, vec3(0.88, 0.94, 1.0), 0.6) * spec * 0.26 * smoothLight;
-
-        // Combine sunlit surface + clouds
-        vec3 litSurface = surfaceAlbedo * (0.015 + diffuse * 0.985) + specCol + twilightTint;
-        float cloudLight = smoothstep(-0.14, 0.25, dot(N, L)) * (0.18 + 0.82 * clamp(dot(N, L) + 0.15, 0.0, 1.0));
-        vec3 cloudCol = mix(uAtmosColor * 0.82, vec3(0.98, 0.99, 1.0), 0.86) * cloudLight;
-        vec3 composite = mix(litSurface, cloudCol, cloudAlpha);
-
-        // Internal Rayleigh Aerial Perspective (gives the whole globe that iconic blue atmospheric veil!)
-        float viewAngle = 1.0 - max(0.0, dot(N, V));
-        float rayleighHaze = pow(viewAngle, 1.75) * 0.62 + 0.08;
-        float sunSideAtmos = smoothstep(-0.22, 0.28, dot(N, L));
-        composite = mix(composite, uAtmosColor * (0.42 + 0.58 * sunSideAtmos), rayleighHaze * sunSideAtmos);
-
-        // Crisp limb brightening at the very edge of the sunlit hemisphere
-        float rim = pow(viewAngle, 4.2) * smoothstep(-0.15, 0.35, dot(N, L));
-        composite += uAtmosColor * rim * 0.45;
-
-        gl_FragColor = vec4(composite, 1.0);
+  // Enhance with real NASA 1024px swirling cyclone cloud map once loaded
+  const cloudImgEl = new Image();
+  cloudImgEl.onload = () => {
+    try {
+      const tmp = document.createElement("canvas");
+      tmp.width = W;
+      tmp.height = H;
+      const tCtx = tmp.getContext("2d");
+      tCtx.drawImage(cloudImgEl, 0, 0, W, H);
+      const src = tCtx.getImageData(0, 0, W, H).data;
+      const shiftX = Math.floor((seed * 173) % W);
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const sx = (x + shiftX) % W;
+          const sIdx = (y * W + sx) * 4;
+          const dIdx = (y * W + x) * 4;
+          const nasaCloud = src[sIdx];
+          d[dIdx] = 252;
+          d[dIdx + 1] = 254;
+          d[dIdx + 2] = 255;
+          d[dIdx + 3] = Math.min(255, Math.round(nasaCloud * 0.85 + d[dIdx + 3] * 0.25));
+        }
       }
-    `
-  });
+      ctx.putImageData(img, 0, 0);
+      tex.needsUpdate = true;
+    } catch (e) {}
+  };
+  cloudImgEl.src = "assets/textures/earth_clouds_1024.png";
+
+  return tex;
 };
 
 // ============================================================================
-// 2. SCULPTED 3D TERRAIN & ARCHIMEDES GERSTNER OCEAN FOR SURFACE EXPLORATION
+// 2. SCULPTED 3D TERRAIN & JAVASCRIPT GERSTNER OCEAN FOR SURFACE EXPLORATION
 // ============================================================================
 export const getTerrainOffset = (x, z, sysIdx = 0) => {
   const sys = SYSTEMS[sysIdx % SYSTEMS.length];
   const distFromPad = Math.hypot(x, z);
 
-  // Coastal Starport Plateau around (0, 0) (radius 0..24m sits at +2.2m)
   const padFlat = Math.min(1.0, Math.max(0.0, (distFromPad - 22.0) / 18.0));
   const smoothPad = padFlat * padFlat * (3.0 - 2.0 * padFlat);
 
-  // South (+Z > 22m) slopes down into the sparkling Ocean Bay!
   const bayFactor = Math.max(0.0, Math.min(1.0, (z - 16.0) / 55.0));
   const bayDepth = -6.8 * bayFactor * Math.sin(Math.min(Math.PI * 0.5, bayFactor * 1.4));
 
-  // North (-Z < -26m) rises into dramatic Mountain Peaks & Ridges
   const northFactor = Math.max(0.0, Math.min(1.0, (-z - 26.0) / 85.0));
   const mtnWaves =
     Math.sin(x * 0.028 + sys.seed) * Math.cos(z * 0.028 - sys.seed) * 16.0 +
@@ -410,7 +501,6 @@ export const getTerrainOffset = (x, z, sysIdx = 0) => {
     Math.cos(x * 0.14 + z * 0.12) * 2.4;
   const mountainHeight = northFactor * (10.0 + Math.max(0.0, mtnWaves));
 
-  // General continental rolling hills & island archipelagos in the ocean bay
   const continentRoll =
     Math.sin(x * 0.018 + sys.seed * 1.3) * Math.cos(z * 0.018) * 5.2 +
     Math.sin((x + z) * 0.042 + sys.seed) * 2.2 +
@@ -442,99 +532,8 @@ export const getWaterSurfaceWorldY = (radius, x, z, time = 0, sysIdx = 0) => {
   return baseWaterY + w1 + w2 + w3 + w4;
 };
 
-const createOceanShaderMaterial = (sys) => {
-  return new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-    uniforms: {
-      uTime: { value: 0 },
-      uRadius: { value: PLANET_RADIUS },
-      uWaterLevel: { value: sys.waterLevel },
-      uDeepColor: { value: new THREE.Color(sys.waterDeepHex) },
-      uShallowColor: { value: new THREE.Color(sys.waterShallowHex) },
-      uSkyColor: { value: new THREE.Color(sys.horizonHex) },
-      uSunDir: { value: new THREE.Vector3(-0.52, 0.34, 0.78).normalize() }
-    },
-    vertexShader: `
-      uniform float uTime;
-      uniform float uRadius;
-      uniform float uWaterLevel;
-      varying vec3 vWorldPos;
-      varying vec3 vNormal;
-      varying float vWaveHeight;
-
-      void main() {
-        vec3 pos = position;
-        float x = pos.x;
-        float z = pos.z;
-
-        float distSq = x * x + z * z;
-        float sphereDrop = uRadius - sqrt(max(1.0, uRadius * uRadius - distSq));
-
-        float p1 = x * 0.14 + z * 0.06 + uTime * 2.1;
-        float p2 = x * 0.08 - z * 0.16 + uTime * 1.65;
-        float p3 = (x + z) * 0.25 - uTime * 2.8;
-        float p4 = x * 0.38 - z * 0.31 + uTime * 3.4;
-
-        float w1 = sin(p1) * 0.28;
-        float w2 = cos(p2) * 0.22;
-        float w3 = sin(p3) * 0.11;
-        float w4 = cos(p4) * 0.06;
-
-        pos.x -= cos(p1) * 0.14 + sin(p2) * 0.08;
-        pos.z -= cos(p1) * 0.06 - sin(p2) * 0.14;
-
-        float waveH = w1 + w2 + w3 + w4;
-        pos.y = uWaterLevel - sphereDrop + waveH;
-        vWaveHeight = waveH;
-
-        float dHx = cos(p1) * 0.14 * 0.28 - sin(p2) * 0.08 * 0.22 + cos(p3) * 0.25 * 0.11 - sin(p4) * 0.38 * 0.06;
-        float dHz = cos(p1) * 0.06 * 0.28 + sin(p2) * 0.16 * 0.22 + cos(p3) * 0.25 * 0.11 + sin(p4) * 0.31 * 0.06;
-        vec3 localNormal = normalize(vec3(-dHx, 1.0, -dHz));
-
-        vec4 worldPosition = modelMatrix * vec4(pos, 1.0);
-        vWorldPos = worldPosition.xyz;
-        vNormal = normalize(mat3(modelMatrix) * localNormal);
-
-        gl_Position = projectionMatrix * viewMatrix * worldPosition;
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 uDeepColor;
-      uniform vec3 uShallowColor;
-      uniform vec3 uSkyColor;
-      uniform vec3 uSunDir;
-      uniform float uTime;
-      varying vec3 vWorldPos;
-      varying vec3 vNormal;
-      varying float vWaveHeight;
-
-      void main() {
-        vec3 N = normalize(vNormal);
-        vec3 V = normalize(cameraPosition - vWorldPos);
-        vec3 L = normalize(uSunDir);
-
-        float fresnel = pow(1.0 - max(0.0, dot(N, V)), 3.2);
-        float crest = clamp((vWaveHeight + 0.35) * 1.15, 0.0, 1.0);
-        vec3 waterCol = mix(uDeepColor, uShallowColor, crest * 0.72 + 0.18);
-        waterCol = mix(waterCol, uSkyColor, fresnel * 0.58);
-
-        vec3 H = normalize(L + V);
-        float spec = pow(max(0.0, dot(N, H)), 96.0);
-        float shimmer = sin(vWorldPos.x * 1.9 + uTime * 4.2) * cos(vWorldPos.z * 1.9 - uTime * 3.7);
-        float foam = smoothstep(0.26, 0.54, vWaveHeight + shimmer * 0.08);
-        waterCol = mix(waterCol, vec3(0.92, 0.98, 1.0), foam * 0.52);
-        waterCol += vec3(1.0, 0.97, 0.9) * spec * 1.35;
-
-        gl_FragColor = vec4(waterCol, 0.84);
-      }
-    `
-  });
-};
-
 // ============================================================================
-// 3. BUILD COLOSSAL PLANET + ATMOSPHERE + ORBITING MOON + SURFACE/OCEAN ZONE
+// 3. BUILD COLOSSAL PLANET + CLOUDS + ATMOSPHERE + SURFACE/OCEAN ZONE
 // ============================================================================
 export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
   const sys = SYSTEMS[systemIndex % SYSTEMS.length];
@@ -543,23 +542,62 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
   group.userData.systemIndex = systemIndex;
   group.userData.radius = radius;
 
-  // 1. Primary Colossal Spherical Globe (R = 1800) with 4K NASA + GLSL Shader
-  const geo = new THREE.SphereGeometry(radius, 128, 128);
-  const globeMat = createPlanetGlobeMaterial(sys);
+  // 1. Primary Colossal Spherical Globe (R = 1800) with JavaScript-Synthesized + 4K NASA PBR Maps
+  const globeMaps = createJavaScriptPlanetGlobeMaps(sys);
+  const geo = new THREE.SphereGeometry(radius, 96, 96);
+  const globeMat = new THREE.MeshStandardMaterial({
+    map: globeMaps.colorTex,
+    roughnessMap: globeMaps.roughTex,
+    bumpMap: globeMaps.bumpTex,
+    bumpScale: 3.5,
+    roughness: 0.72,
+    metalness: 0.06,
+    envMapIntensity: 0.02
+  });
   const planetMesh = new THREE.Mesh(geo, globeMat);
   planetMesh.receiveShadow = true;
   group.add(planetMesh);
-  group.globeMat = globeMat;
+  group.planetMesh = planetMesh;
 
-  // 2. Crisp Rayleigh Atmospheric Limb Halo (hugs the globe edge tightly like NASA photos)
-  const outerAtmosGeo = new THREE.SphereGeometry(radius * 1.022, 96, 96);
+  // 2. Swirling White Cyclone Cloud Sphere + Cloud Shadow Layer (pure Three.js PBR)
+  const cloudTex = createJavaScriptCloudTexture(sys.seed);
+
+  const cloudShadowGeo = new THREE.SphereGeometry(radius * 1.002, 72, 72);
+  const cloudShadowMat = new THREE.MeshBasicMaterial({
+    map: cloudTex,
+    color: 0x091326,
+    transparent: true,
+    opacity: 0.28,
+    depthWrite: false
+  });
+  const cloudShadowMesh = new THREE.Mesh(cloudShadowGeo, cloudShadowMat);
+  cloudShadowMesh.rotation.y = 0.004;
+  group.add(cloudShadowMesh);
+  group.cloudShadowMesh = cloudShadowMesh;
+
+  const cloudGeo = new THREE.SphereGeometry(radius * 1.007, 84, 84);
+  const cloudMat = new THREE.MeshStandardMaterial({
+    map: cloudTex,
+    transparent: true,
+    opacity: 0.92,
+    roughness: 0.9,
+    metalness: 0.0,
+    envMapIntensity: 0.02,
+    depthWrite: false
+  });
+  const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+  group.add(cloudMesh);
+  group.cloudMesh = cloudMesh;
+
+  // 3. Crisp Rayleigh Atmospheric Limb Halo (hugs the globe edge tightly like NASA photos)
+  const outerAtmosGeo = new THREE.SphereGeometry(radius * 1.02, 72, 72);
   const outerAtmosMat = new THREE.ShaderMaterial({
     transparent: true,
     side: THREE.BackSide,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     uniforms: {
-      uColor: { value: new THREE.Color(...sys.atmosColor) },
+      uColor: { value: new THREE.Color(sys.atmosHex) },
       uSunDir: { value: new THREE.Vector3(-0.52, 0.34, 0.78).normalize() }
     },
     vertexShader: `
@@ -580,7 +618,7 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
         float rim = pow(clamp(0.72 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 2.8);
         float daySide = smoothstep(-0.22, 0.35, dot(vWorldNormal, normalize(uSunDir)));
         vec3 col = uColor * (0.15 + 0.85 * daySide);
-        gl_FragColor = vec4(col, rim * 0.78 * (0.2 + 0.8 * daySide));
+        gl_FragColor = vec4(col, rim * 0.75 * (0.2 + 0.8 * daySide));
       }
     `
   });
@@ -588,30 +626,39 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
   group.add(outerAtmos);
   group.outerAtmosMat = outerAtmosMat;
 
-  // 3. Orbiting 3D Moon in Deep Space (with real NASA moon_1024.jpg texture)
+  // 4. Orbiting 3D Moon in Deep Space
   const moonPivot = new THREE.Group();
-  const moonGeo = new THREE.SphereGeometry(95, 48, 48);
+  const moonGeo = new THREE.SphereGeometry(95, 40, 40);
   const moonMat = new THREE.MeshStandardMaterial({
-    map: sharedPlanetMaps.moon1k,
+    color: 0xcbd5e1,
     roughness: 0.92,
     metalness: 0.05
   });
+  texLoader.load(
+    "assets/textures/moon_1024.jpg",
+    (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      moonMat.map = t;
+      moonMat.needsUpdate = true;
+    },
+    undefined,
+    () => {}
+  );
   const moonMesh = new THREE.Mesh(moonGeo, moonMat);
   moonMesh.position.set(-2850, 950, -1400);
   moonPivot.add(moonMesh);
   group.add(moonPivot);
   group.moonPivot = moonPivot;
 
-  // 4. Surface & Ocean Exploration Detail Group at the North Pole Landing Zone (0, +R, 0)
-  // Automatically shown when descending/landed/exploring on foot, and hidden in deep orbit
-  // so the planet silhouette in space is a 100% pure, flawless sphere!
+  // 5. Surface & Ocean Exploration Detail Group at the North Pole Landing Zone (0, +R, 0)
   const surfaceDetailGroup = new THREE.Group();
+  surfaceDetailGroup.visible = false;
   group.add(surfaceDetailGroup);
   group.surfaceDetailGroup = surfaceDetailGroup;
 
   const pTex = makePlanetTextures(sys.seed, sys.palette);
-  const capSize = 950;
-  const capSegs = 150;
+  const capSize = 900;
+  const capSegs = 120;
   const capGeo = new THREE.PlaneGeometry(capSize, capSize, capSegs, capSegs);
   capGeo.rotateX(-Math.PI / 2);
 
@@ -656,18 +703,39 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
   capMesh.receiveShadow = true;
   surfaceDetailGroup.add(capMesh);
 
-  // 5. Real Animated 4-Wave Gerstner Ocean Mesh + Ripples + Floating Buoys
+  // 6. JavaScript-Animated 3D Gerstner Ocean Mesh + Ripples + Floating Buoys
   if (sys.hasWater) {
-    const oceanGeo = new THREE.PlaneGeometry(capSize, capSize, 140, 140);
+    const oceanSegs = 72;
+    const oceanGeo = new THREE.PlaneGeometry(capSize, capSize, oceanSegs, oceanSegs);
     oceanGeo.rotateX(-Math.PI / 2);
-    const oceanMat = createOceanShaderMaterial(sys);
+
+    // Store base (x, z) coordinates for fast JavaScript wave displacement each frame
+    const oPos = oceanGeo.attributes.position;
+    const baseXZ = new Float32Array(oPos.count * 2);
+    for (let i = 0; i < oPos.count; i++) {
+      const ox = oPos.getX(i);
+      const oz = oPos.getZ(i);
+      baseXZ[i * 2] = ox;
+      baseXZ[i * 2 + 1] = oz;
+      oPos.setY(i, radius + getWaterSurfaceWorldY(radius, ox, oz, 0, systemIndex));
+    }
+    oceanGeo.computeVertexNormals();
+
+    const oceanMat = new THREE.MeshStandardMaterial({
+      color: sys.waterShallowHex,
+      emissive: sys.waterDeepHex,
+      emissiveIntensity: 0.25,
+      roughness: 0.14,
+      metalness: 0.65,
+      transparent: true,
+      opacity: 0.84,
+      side: THREE.DoubleSide
+    });
     const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
-    oceanMesh.position.y = radius;
     surfaceDetailGroup.add(oceanMesh);
     group.oceanMesh = oceanMesh;
-    group.oceanMat = oceanMat;
+    group.oceanBaseXZ = baseXZ;
 
-    // Expanding 3D Water Ripple Rings Pool
     const ripples = [];
     const rippleGeo = new THREE.RingGeometry(0.35, 0.58, 32);
     rippleGeo.rotateX(-Math.PI / 2);
@@ -686,7 +754,6 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
     }
     group.waterRipples = ripples;
 
-    // Floating Hydro-Research Buoys bobbing on the ocean waves
     const floatingBuoys = [];
     const buoyCoords = [
       [-18, 42],
@@ -725,7 +792,7 @@ export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
     group.floatingBuoys = floatingBuoys;
   }
 
-  // 6. Starport Landing Pad & Coastal Pier leading into the Ocean
+  // 7. Starport Landing Pad & Coastal Pier leading into the Ocean
   buildLandingPadOutpost(surfaceDetailGroup, radius, sys, systemIndex);
 
   return group;
@@ -796,7 +863,6 @@ const buildLandingPadOutpost = (parentGroup, radius, sys, sysIdx) => {
     outpost.add(bulb);
   }
 
-  // Coastal Walkway Pier leading South (+Z = 11m to +Z = 34m) into the Ocean Bay
   if (sys.hasWater) {
     const pierGroup = new THREE.Group();
     const deckMat = new THREE.MeshStandardMaterial({
@@ -827,7 +893,6 @@ const buildLandingPadOutpost = (parentGroup, radius, sys, sysIdx) => {
     outpost.add(pierGroup);
   }
 
-  // Real Online 3D Outpost Models
   gltfLoader.load(
     "assets/models/lunar_lander.glb",
     (gltf) => {
@@ -916,7 +981,7 @@ const buildLandingPadOutpost = (parentGroup, radius, sys, sysIdx) => {
 };
 
 // ============================================================================
-// 5. LAND & AQUATIC FAUNA
+// 5. LAND & AQUATIC FAUNA + JAVASCRIPT OCEAN VERTEX ANIMATION
 // ============================================================================
 const buildBiomeCreature = (style, colors) => {
   const root = new THREE.Group();
@@ -1076,11 +1141,15 @@ export const updateAnimals = (planet, dt, time = 0) => {
   const radius = planet.userData.radius || PLANET_RADIUS;
   const sysIdx = planet.userData.systemIndex || 0;
 
-  if (planet.globeMat) {
-    planet.globeMat.uniforms.uTime.value = time;
+  // Slowly rotate the swirling cloud deck & planet globe in JavaScript
+  if (planet.cloudMesh) {
+    planet.cloudMesh.rotation.y += dt * 0.0085;
   }
-  if (planet.oceanMat) {
-    planet.oceanMat.uniforms.uTime.value = time;
+  if (planet.cloudShadowMesh) {
+    planet.cloudShadowMesh.rotation.y += dt * 0.0085;
+  }
+  if (planet.planetMesh) {
+    planet.planetMesh.rotation.y += dt * 0.0032;
   }
   if (planet.moonPivot) {
     planet.moonPivot.rotation.y += dt * 0.012;
@@ -1089,9 +1158,21 @@ export const updateAnimals = (planet, dt, time = 0) => {
     planet.surfaceDetailGroup.issModel.rotation.y += dt * 0.08;
   }
 
-  // Only update local surface ripples, buoys & animals when surfaceDetailGroup is visible
   if (planet.surfaceDetailGroup && !planet.surfaceDetailGroup.visible) {
     return;
+  }
+
+  // JavaScript-Driven 3D Gerstner Ocean Vertex Animation
+  if (planet.oceanMesh && planet.oceanBaseXZ) {
+    const posAttr = planet.oceanMesh.geometry.attributes.position;
+    const baseXZ = planet.oceanBaseXZ;
+    for (let i = 0; i < posAttr.count; i++) {
+      const bx = baseXZ[i * 2];
+      const bz = baseXZ[i * 2 + 1];
+      const wy = getWaterSurfaceWorldY(radius, bx, bz, time, sysIdx);
+      posAttr.setY(i, radius + wy);
+    }
+    posAttr.needsUpdate = true;
   }
 
   if (planet.waterRipples) {

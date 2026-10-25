@@ -13,7 +13,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
-import { Textures } from "./textures.js";
+import { Textures } from "./textures.js?v=7";
 
 // Shared 3D loaders with local Draco WASM decoder
 const dracoLoader = new DRACOLoader();
