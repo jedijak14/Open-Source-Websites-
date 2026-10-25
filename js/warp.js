@@ -1,461 +1,534 @@
-/**
- * Stellar Voyage — Cinematic Cutscenes & Landing/Takeoff Animation Director
- * Includes:
- * 1. WarpCutscene — Multi-angle Quantum Hyperdrive Wormhole Cutscene
- * 2. FlightCutscene — Launch, Planetary Landing (with hydraulic gear, VTOL retro-thrusters,
- *    touchdown shockwave ring, suspension bounce, and boarding ramp), and Takeoff animations.
- */
+// ============================================================================
+// STELLAR VOYAGE — Cinematic Cutscene Director
+//   1. WarpCutscene(scene, camera, ship, cockpit, onDone, onSubtext)
+//   2. FlightCutscene(mode, scene, camera, ship, cockpit, onDone, onSubtext)
+//      Modes: "LANDING" (with volumetric pad steam eruption), "TAKEOFF", "LAUNCH"
+// ============================================================================
 
 import * as THREE from "three";
 import Audio from "./audio.js";
 
+// ============================================================================
+// 1. MULTI-SHOT QUANTUM WARP CUTSCENE
+// ============================================================================
 export class WarpCutscene {
-  constructor(scene, camera, ship, cockpit, onComplete, onStageText) {
+  constructor(scene, camera, ship, cockpit, onDone, onSubtext) {
     this.scene = scene;
     this.camera = camera;
     this.ship = ship;
     this.cockpit = cockpit;
-    this.onComplete = onComplete;
-    this.onStageText = onStageText || (() => {});
-    this.active = true;
-    this.time = 0;
-    this.duration = 5.0;
+    this.onDone = onDone;
+    this.onSubtext = onSubtext;
 
-    this.starCount = 520;
-    this.starBaseZ = new Float32Array(this.starCount);
-    this.starXY = new Float32Array(this.starCount * 2);
+    this.t = 0;
+    this.duration = 5.4;
+    this.active = false;
 
-    this.warpGroup = new THREE.Group();
-    this.warpGroup.name = "warpCutsceneGroup";
-    this.init();
-  }
+    this.group = new THREE.Group();
+    this.group.position.copy(ship.position);
+    this.group.quaternion.copy(ship.quaternion);
 
-  init() {
-    // 1. Hyperspace Star Streaks
-    const lineGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array(this.starCount * 6);
-    const colors = new Float32Array(this.starCount * 6);
+    // 1. Plasma Vortex Tunnel
+    const tunnelGeo = new THREE.CylinderGeometry(8.5, 8.5, 220, 48, 36, true);
+    tunnelGeo.rotateX(Math.PI / 2);
 
-    for (let i = 0; i < this.starCount; i++) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    const grad = ctx.createLinearGradient(0, 0, 512, 512);
+    grad.addColorStop(0, "#020617");
+    grad.addColorStop(0.25, "#0284c7");
+    grad.addColorStop(0.5, "#38bdf8");
+    grad.addColorStop(0.75, "#818cf8");
+    grad.addColorStop(1, "#020617");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 512, 512);
+
+    for (let i = 0; i < 160; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(125,211,252,0.55)" : "rgba(192,132,252,0.45)";
+      ctx.fillRect(Math.random() * 512, 0, 1 + Math.random() * 4, 512);
+    }
+
+    this.tunnelTex = new THREE.CanvasTexture(canvas);
+    this.tunnelTex.wrapS = THREE.RepeatWrapping;
+    this.tunnelTex.wrapT = THREE.RepeatWrapping;
+    this.tunnelTex.repeat.set(3, 5);
+
+    this.tunnelMat = new THREE.MeshBasicMaterial({
+      map: this.tunnelTex,
+      side: THREE.BackSide,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    this.tunnelMesh = new THREE.Mesh(tunnelGeo, this.tunnelMat);
+    this.group.add(this.tunnelMesh);
+
+    // 2. Relativistic Star Streaks
+    const streakCount = 460;
+    const pos = new Float32Array(streakCount * 6);
+    const col = new Float32Array(streakCount * 6);
+
+    for (let i = 0; i < streakCount; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const radius = 4.0 + Math.random() * 58;
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      const z = -Math.random() * 340;
-
-      this.starXY[i * 2] = x;
-      this.starXY[i * 2 + 1] = y;
-      this.starBaseZ[i] = z;
+      const rad = 1.6 + Math.random() * 6.5;
+      const x = Math.cos(angle) * rad;
+      const y = Math.sin(angle) * rad;
+      const z = -Math.random() * 200 + 100;
+      const len = 8 + Math.random() * 18;
 
       const idx = i * 6;
-      positions[idx] = x;
-      positions[idx + 1] = y;
-      positions[idx + 2] = z;
-      positions[idx + 3] = x;
-      positions[idx + 4] = y;
-      positions[idx + 5] = z - 6;
+      pos[idx] = x;
+      pos[idx + 1] = y;
+      pos[idx + 2] = z;
+      pos[idx + 3] = x;
+      pos[idx + 4] = y;
+      pos[idx + 5] = z + len;
 
-      const r = 0.4 + Math.random() * 0.6;
-      const g = 0.78 + Math.random() * 0.22;
-      const b = 1.0;
-      colors[idx] = r; colors[idx + 1] = g; colors[idx + 2] = b;
-      colors[idx + 3] = r * 0.25; colors[idx + 4] = g * 0.55; colors[idx + 5] = b;
+      const c = i % 3 === 0 ? [0.45, 0.88, 1.0] : i % 3 === 1 ? [0.75, 0.62, 1.0] : [1, 1, 1];
+      col[idx] = c[0];
+      col[idx + 1] = c[1];
+      col[idx + 2] = c[2];
+      col[idx + 3] = c[0];
+      col[idx + 4] = c[1];
+      col[idx + 5] = c[2];
     }
 
-    lineGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    lineGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    const streakGeo = new THREE.BufferGeometry();
+    streakGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    streakGeo.setAttribute("color", new THREE.BufferAttribute(col, 3));
 
-    this.lineMat = new THREE.LineBasicMaterial({
+    this.streakMat = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.95,
+      opacity: 0,
       blending: THREE.AdditiveBlending
     });
+    this.streaks = new THREE.LineSegments(streakGeo, this.streakMat);
+    this.group.add(this.streaks);
 
-    this.starLines = new THREE.LineSegments(lineGeo, this.lineMat);
-    this.warpGroup.add(this.starLines);
-
-    // 2. Spiraling Hyperspace Plasma Tunnel Rings
-    this.tunnel = new THREE.Group();
-    this.ringCount = 22;
-    for (let r = 0; r < this.ringCount; r++) {
-      const col = r % 3 === 0 ? 0x22d3ee : r % 3 === 1 ? 0x818cf8 : 0xe879f9;
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(11.5, 0.35, 10, 40),
-        new THREE.MeshBasicMaterial({
-          color: col,
-          transparent: true,
-          opacity: 0.36,
-          blending: THREE.AdditiveBlending
-        })
-      );
-      ring.position.z = -r * 15;
-      ring.rotation.z = r * 0.35;
-      this.tunnel.add(ring);
-    }
-    this.warpGroup.add(this.tunnel);
-
-    // 3. Final Arrival Flash Quad
-    this.flash = new THREE.Mesh(
-      new THREE.PlaneGeometry(180, 180),
-      new THREE.MeshBasicMaterial({
-        color: 0xe0f2fe,
+    // 3. Shockwave Portal Rings
+    this.rings = [];
+    const ringGeo = new THREE.TorusGeometry(6.8, 0.08, 12, 48);
+    for (let i = 0; i < 12; i++) {
+      const rMat = new THREE.MeshBasicMaterial({
+        color: i % 2 === 0 ? 0x38bdf8 : 0xa855f7,
         transparent: true,
         opacity: 0,
-        depthTest: false
-      })
-    );
-    this.flash.position.z = -4.5;
-    this.warpGroup.add(this.flash);
+        blending: THREE.AdditiveBlending
+      });
+      const rMesh = new THREE.Mesh(ringGeo, rMat);
+      rMesh.position.z = -i * 18 + 60;
+      this.group.add(rMesh);
+      this.rings.push(rMesh);
+    }
 
-    this.scene.add(this.warpGroup);
+    scene.add(this.group);
   }
 
   start() {
+    this.t = 0;
     this.active = true;
-    this.time = 0;
-    this.warpGroup.visible = true;
-    this.flash.material.opacity = 0;
+    this.ship.visible = true;
+    if (this.cockpit) this.cockpit.visible = false;
   }
 
   update(dt) {
-    if (!this.active) return false;
-    this.time += dt;
-    const p = Math.min(1, this.time / this.duration);
+    if (!this.active) return;
+    this.t += dt;
+    const t = this.t;
 
-    // Multi-shot camera choreography during Warp!
-    // Shot 1 (0..0.62): Dynamic external camera sweeping around the Aegis Vanguard flying inside the wormhole!
-    // Shot 2 (0.62..1.0): First-person cockpit view rushing into the quantum exit flash!
-    if (this.ship && this.cockpit) {
-      if (p < 0.62) {
-        this.ship.visible = true;
-        this.cockpit.visible = false;
-        this.onStageText("QUANTUM FOLD ACTIVE // HYPERSPACE CORRIDOR");
+    this.group.position.copy(this.ship.position);
+    this.group.quaternion.copy(this.ship.quaternion);
 
-        // Gently bank & vibrate the ship inside the wormhole
-        this.ship.position.set(
-          Math.sin(this.time * 4.5) * 0.35,
-          25 + Math.cos(this.time * 3.8) * 0.25,
-          120
-        );
-        this.ship.rotation.set(
-          Math.sin(this.time * 2.5) * 0.06,
-          0,
-          Math.sin(this.time * 1.8) * 0.22
-        );
-        if (this.ship.__quantumRing) {
-          this.ship.__quantumRing.rotation.z += dt * 12;
-        }
-
-        // Sweep camera from front-quarter to rear-chase behind the ship
-        const sweep = p / 0.62;
-        const camX = Math.sin(sweep * Math.PI * 0.85) * 8.5;
-        const camY = this.ship.position.y + 2.2 + Math.sin(sweep * Math.PI) * 1.5;
-        const camZ = this.ship.position.z + 11.5 - sweep * 3.0;
-        this.camera.position.set(camX, camY, camZ);
-        this.camera.lookAt(this.ship.position.x, this.ship.position.y, this.ship.position.z - 12);
-      } else {
-        this.ship.visible = false;
-        this.cockpit.visible = true;
-        this.onStageText("APPROACHING MASS SHADOW // DROPPING OUT OF WARP");
-        this.cockpit.position.set(0, 25, 120);
-        this.cockpit.rotation.set(0, 0, 0);
-        this.camera.position.set(
-          (Math.random() - 0.5) * 0.06,
-          25 + (Math.random() - 0.5) * 0.06,
-          120
-        );
-        this.camera.rotation.set(0, 0, 0);
-      }
+    if (this.ship.__quantumRing) {
+      this.ship.__quantumRing.rotation.z += dt * 12.0;
     }
 
-    // Lock warp tunnel along the forward -Z axis around the ship/camera
-    this.warpGroup.position.set(0, 25, 125);
-    this.warpGroup.rotation.set(0, 0, 0);
+    const fade =
+      t < 0.65
+        ? t / 0.65
+        : t > this.duration - 0.9
+        ? Math.max(0, (this.duration - t) / 0.9)
+        : 1.0;
 
-    // Stretch & rush star streaks toward +Z
-    const speed = 130 + p * 420;
-    const streakLen = 4 + Math.sin(p * Math.PI) * 44;
-    const posArr = this.starLines.geometry.attributes.position.array;
+    this.tunnelMat.opacity = fade * 0.88;
+    this.streakMat.opacity = fade * 0.95;
 
-    for (let i = 0; i < this.starCount; i++) {
-      let z = this.starBaseZ[i] + dt * speed;
-      if (z > 20) z -= 340;
-      this.starBaseZ[i] = z;
+    this.tunnelTex.offset.y -= dt * 3.8;
+    this.tunnelTex.offset.x += dt * 0.55;
+    this.tunnelMesh.rotation.z += dt * 1.4;
 
-      const x = this.starXY[i * 2];
-      const y = this.starXY[i * 2 + 1];
-      const idx = i * 6;
-      posArr[idx] = x;
-      posArr[idx + 1] = y;
-      posArr[idx + 2] = z;
-      posArr[idx + 3] = x;
-      posArr[idx + 4] = y;
-      posArr[idx + 5] = z - streakLen;
+    const posAttr = this.streaks.geometry.attributes.position;
+    const arr = posAttr.array;
+    const speed = 155 + Math.sin((t / this.duration) * Math.PI) * 195;
+    for (let i = 0; i < arr.length; i += 6) {
+      const len = arr[i + 5] - arr[i + 2];
+      arr[i + 2] += speed * dt;
+      if (arr[i + 2] > 90) arr[i + 2] = -120;
+      arr[i + 5] = arr[i + 2] + len;
     }
-    this.starLines.geometry.attributes.position.needsUpdate = true;
+    posAttr.needsUpdate = true;
 
-    // Move & spiral tunnel rings toward +Z
-    this.tunnel.rotation.z += dt * (2.2 + p * 4.0);
-    this.tunnel.children.forEach((ring, i) => {
-      ring.position.z += dt * (110 + p * 240);
-      if (ring.position.z > 15) {
-        ring.position.z -= this.ringCount * 15;
-      }
-      const distFactor = Math.max(0, 1 - Math.abs(ring.position.z) / 280);
-      ring.material.opacity = distFactor * (0.28 + 0.25 * Math.sin(this.time * 9 + i));
+    this.rings.forEach((r, idx) => {
+      r.position.z += speed * 0.85 * dt;
+      if (r.position.z > 80) r.position.z = -135;
+      r.rotation.z += dt * (idx % 2 === 0 ? 2.2 : -2.2);
+      r.material.opacity = fade * 0.65;
     });
 
-    // Dynamic FOV warp & arrival flash
-    if (p > 0.8) {
-      const f = (p - 0.8) / 0.2;
-      this.flash.position.copy(this.camera.position);
-      this.flash.quaternion.copy(this.camera.quaternion);
-      this.flash.translateZ(-4);
-      this.flash.material.opacity = Math.sin(f * Math.PI) * 0.95;
-      this.camera.fov = 50 + (1 - f) * 34;
+    const shake = fade * 0.08;
+    const sx = (Math.random() - 0.5) * shake;
+    const sy = (Math.random() - 0.5) * shake;
+
+    if (t < 1.4) {
+      if (this.onSubtext) this.onSubtext("PHASE 1 // FOLDING SPACE-TIME CONTINUUM");
+      const p = t / 1.4;
+      const localCam = new THREE.Vector3(
+        THREE.MathUtils.lerp(0, 4.2, p) + sx,
+        THREE.MathUtils.lerp(2.2, 1.2, p) + sy,
+        THREE.MathUtils.lerp(11.0, 5.2, p)
+      );
+      this.camera.position.copy(localCam.applyMatrix4(this.ship.matrixWorld));
+      const lookTarget = new THREE.Vector3(0, 0.2, -18).applyMatrix4(this.ship.matrixWorld);
+      this.camera.lookAt(lookTarget);
+      this.camera.fov = THREE.MathUtils.lerp(55, 88, p);
+      this.camera.updateProjectionMatrix();
+    } else if (t < 4.0) {
+      if (this.onSubtext) this.onSubtext("PHASE 2 // TRAVERSING QUANTUM SINGULARITY BRIDGE");
+      const p = (t - 1.4) / 2.6;
+      const angle = p * Math.PI * 1.45;
+      const radius = 7.2 + Math.sin(p * Math.PI) * 2.2;
+      const localCam = new THREE.Vector3(
+        Math.sin(angle) * radius + sx,
+        1.2 + Math.cos(angle * 2) * 0.8 + sy,
+        Math.cos(angle) * radius
+      );
+      this.camera.position.copy(localCam.applyMatrix4(this.ship.matrixWorld));
+      this.camera.lookAt(this.ship.position);
+      this.camera.fov = 88 + Math.sin(p * Math.PI) * 12;
       this.camera.updateProjectionMatrix();
     } else {
-      this.camera.fov = 50 + p * 34;
+      if (this.onSubtext) this.onSubtext("PHASE 3 // DE-COHERENCE & ORBITAL INSERTION");
+      const p = Math.min(1, (t - 4.0) / 1.4);
+      const ease = 1 - Math.pow(1 - p, 3);
+      const localCam = new THREE.Vector3(
+        THREE.MathUtils.lerp(-4.0, 0, ease) + sx,
+        THREE.MathUtils.lerp(1.0, 2.5, ease) + sy,
+        THREE.MathUtils.lerp(-6.5, 11.0, ease)
+      );
+      this.camera.position.copy(localCam.applyMatrix4(this.ship.matrixWorld));
+      const forwardTarget = new THREE.Vector3(0, 0.2, -30).applyMatrix4(this.ship.matrixWorld);
+      this.camera.lookAt(forwardTarget);
+      this.camera.fov = THREE.MathUtils.lerp(88, 50, ease);
       this.camera.updateProjectionMatrix();
     }
 
-    if (this.time >= this.duration) {
+    if (t >= this.duration) {
       this.finish();
-      return true;
     }
-    return false;
   }
 
   finish() {
+    if (!this.active) return;
     this.active = false;
     this.camera.fov = 50;
     this.camera.updateProjectionMatrix();
     this.dispose();
-    if (this.onComplete) this.onComplete();
+    if (this.onDone) this.onDone();
   }
 
   dispose() {
-    if (this.warpGroup) {
-      this.scene.remove(this.warpGroup);
+    this.active = false;
+    if (this.group && this.group.parent) {
+      this.scene.remove(this.group);
     }
   }
 }
 
-/**
- * FlightCutscene — Handles:
- * - "LANDING": Atmospheric descent, hydraulic landing gear deployment, VTOL retro-thrusters,
- *              touchdown shockwave ring, suspension bounce, and boarding ramp deployment.
- * - "TAKEOFF": Boarding ramp retraction, vertical VTOL liftoff, gear retraction, and orbital climb.
- * - "LAUNCH": Cinematic multi-shot intro / orbital ignition sequence.
- */
+// ============================================================================
+// 2. FLIGHT CUTSCENE DIRECTOR ("LANDING" WITH STEAM, "TAKEOFF", "LAUNCH")
+// ============================================================================
 export class FlightCutscene {
-  constructor(type, scene, camera, ship, cockpit, onComplete, onStageText) {
-    this.type = type; // "LANDING" | "TAKEOFF" | "LAUNCH"
+  constructor(mode, scene, camera, ship, cockpit, onDone, onSubtext) {
+    this.mode = mode; // "LANDING" | "TAKEOFF" | "LAUNCH"
     this.scene = scene;
     this.camera = camera;
     this.ship = ship;
     this.cockpit = cockpit;
-    this.onComplete = onComplete;
-    this.onStageText = onStageText || (() => {});
+    this.onDone = onDone;
+    this.onSubtext = onSubtext;
 
-    this.time = 0;
-    this.duration = type === "LANDING" ? 4.0 : type === "TAKEOFF" ? 3.4 : 3.8;
+    this.t = 0;
     this.active = true;
-    this.gearSoundPlayed = false;
-    this.touchdownSoundPlayed = false;
+    this.duration = mode === "LANDING" ? 6.2 : mode === "TAKEOFF" ? 4.6 : 4.0;
 
-    // Create 3D Touchdown Plasma/Dust Shockwave Ring on the landing pad
-    this.shockwave = new THREE.Mesh(
-      new THREE.RingGeometry(0.8, 1.8, 48),
-      new THREE.MeshBasicMaterial({
-        color: 0x22d3ee,
-        transparent: true,
-        opacity: 0,
-        side: THREE.DoubleSide,
-        blending: THREE.AdditiveBlending
-      })
-    );
-    this.shockwave.rotation.x = -Math.PI / 2;
-    this.shockwave.position.set(0, 0.22, 0);
-    this.scene.add(this.shockwave);
+    this.gearSfxPlayed = false;
+    this.steamSfxPlayed = false;
+    this.touchdownPlayed = false;
+    this.rampSfxPlayed = false;
 
     this.ship.visible = true;
-    this.cockpit.visible = false;
-    Audio.sfx.cutsceneBoom();
+    if (this.cockpit) this.cockpit.visible = false;
+
+    this.startPos = new THREE.Vector3();
+    this.midPos = new THREE.Vector3();
+    this.endPos = new THREE.Vector3();
+    this.startQuat = new THREE.Quaternion();
+    this.endQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
+
+    if (mode === "LANDING") {
+      this.endPos.set(0, 1.45, 0); // North Pole Landing Pad
+      this.midPos.set(0, 16.5, 22.0);
+      this.startPos.set(0, 28.0, 52.0);
+      this.ship.position.copy(this.startPos);
+      this.ship.setGearProgress(0);
+      this.ship.setRampProgress(0);
+      this.ship.setRetroIntensity(0.2);
+      this.ship.setSteamIntensity(0.25);
+    } else if (mode === "TAKEOFF") {
+      this.startPos.set(0, 1.45, 0);
+      this.midPos.set(0, 14.0, -6.0);
+      this.endPos.set(0, 22.0, -38.0);
+      this.ship.position.copy(this.startPos);
+      this.ship.setGearProgress(1);
+      this.ship.setRampProgress(1);
+      this.ship.setRetroIntensity(0.85);
+      this.ship.setSteamIntensity(0.95);
+      this.ship.triggerSteamBurst();
+      Audio.sfx.hydraulics();
+      Audio.sfx.steam(0.95, 2.8);
+    } else {
+      // "LAUNCH" opening orbital flyby
+      this.startPos.set(0, 13.0, 88.0);
+      this.midPos.set(0, 16.0, 66.0);
+      this.endPos.set(0, 18.0, 48.0);
+      this.ship.position.copy(this.startPos);
+      this.ship.setGearProgress(0);
+      this.ship.setRampProgress(0);
+      this.ship.setRetroIntensity(0);
+      this.ship.setSteamIntensity(0);
+      Audio.sfx.steam(0.65, 2.0);
+    }
   }
 
   update(dt) {
-    if (!this.active) return false;
-    this.time += dt;
-    const p = Math.min(1, this.time / this.duration);
-    // Smooth ease-in-out
-    const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    if (!this.active) return;
+    this.t += dt;
+    const t = this.t;
 
-    if (this.type === "LANDING") {
-      // Phase 1 (0..0.45): Sweeping descent from orbit (0, 22, 38) -> hover over pad (0, 5.5, 0)
-      // Phase 2 (0.35..0.75): Deploy hydraulic landing gear & fire VTOL belly retro-thrusters
-      // Phase 3 (0.75..1.0): Vertical touchdown to (0, 1.45, 0), shockwave ring, suspension bounce, lower boarding ramp!
-      if (p < 0.4) {
-        this.onStageText("LOCKING LANDING BEACON // FINAL APPROACH VECTOR");
-      } else if (p < 0.78) {
-        this.onStageText("DEPLOYING HYDRAULIC LANDING GEAR // RETRO-THRUSTERS ENGAGED");
-        if (!this.gearSoundPlayed) {
-          this.gearSoundPlayed = true;
+    if (this.ship.__quantumRing) {
+      this.ship.__quantumRing.rotation.z += dt * 4.5;
+    }
+
+    if (this.mode === "LANDING") {
+      // ======================================================================
+      // SHOT 1 (0.0s - 2.3s): Orbital Descent & Approach Flyby
+      // ======================================================================
+      if (t < 2.3) {
+        if (this.onSubtext) {
+          this.onSubtext("PHASE 1 // AUTOPILOT ALIGNING WITH NORTH POLE LANDING BEACON");
+        }
+        const p = t / 2.3;
+        const ease = p * p * (3 - 2 * p);
+
+        this.ship.position.lerpVectors(this.startPos, this.midPos, ease);
+        this.ship.rotation.set(THREE.MathUtils.lerp(-0.22, 0.06, ease), 0, 0);
+        this.ship.setRetroIntensity(THREE.MathUtils.lerp(0.2, 0.65, ease));
+        this.ship.setSteamIntensity(THREE.MathUtils.lerp(0.2, 0.6, ease));
+
+        if (t > 1.2 && !this.gearSfxPlayed) {
+          this.gearSfxPlayed = true;
           Audio.sfx.hydraulics();
         }
-      } else {
-        this.onStageText("TOUCHDOWN CONFIRMED // LOWERING AFT BOARDING RAMP");
-        if (!this.touchdownSoundPlayed) {
-          this.touchdownSoundPlayed = true;
-          Audio.sfx.land();
+        if (t > 1.2) {
+          this.ship.setGearProgress(Math.min(1, (t - 1.2) / 1.1));
         }
+
+        const camPos = new THREE.Vector3(10.5, 3.8, 8.5).add(this.midPos);
+        this.camera.position.copy(camPos);
+        this.camera.lookAt(this.ship.position);
       }
+      // ======================================================================
+      // SHOT 2 (2.3s - 4.6s): VTOL Retro-Burn, Billowing Pad Steam & Touchdown
+      // ======================================================================
+      else if (t < 4.6) {
+        if (this.onSubtext) {
+          this.onSubtext("PHASE 2 // DEPLOYING HYDRAULIC GEAR & VENTING HIGH-PRESSURE PAD STEAM");
+        }
+        const p = (t - 2.3) / 2.3;
+        const ease = 1 - Math.pow(1 - p, 2.6);
 
-      // Ship position spline
-      const zPos = (1 - Math.min(1, p / 0.68)) * 34;
-      let yPos;
-      if (p < 0.78) {
-        const dp = p / 0.78;
-        yPos = THREE.MathUtils.lerp(20, 1.45, dp * dp * (3 - 2 * dp));
-      } else {
-        yPos = 1.45;
+        this.ship.position.lerpVectors(this.midPos, this.endPos, ease);
+        this.ship.rotation.set(THREE.MathUtils.lerp(0.06, 0, ease), 0, 0);
+        this.ship.setGearProgress(1);
+        this.ship.setRetroIntensity(0.4 + Math.sin(p * Math.PI) * 0.6);
+        this.ship.setSteamIntensity(THREE.MathUtils.lerp(0.65, 1.0, ease));
+
+        if (!this.steamSfxPlayed) {
+          this.steamSfxPlayed = true;
+          Audio.sfx.steam(0.95, 2.8);
+        }
+
+        // Trigger massive 360-degree touchdown steam shockwave as landing pads hit deck!
+        if (p > 0.85 && !this.touchdownPlayed) {
+          this.touchdownPlayed = true;
+          Audio.sfx.touchdown();
+          this.ship.triggerSteamBurst();
+        }
+
+        const angle = THREE.MathUtils.lerp(0.55, 1.25, p);
+        const radius = THREE.MathUtils.lerp(11.0, 8.2, p);
+        this.camera.position.set(
+          this.endPos.x + Math.sin(angle) * radius,
+          this.endPos.y + THREE.MathUtils.lerp(0.8, 1.6, p),
+          this.endPos.z + Math.cos(angle) * radius
+        );
+        this.camera.lookAt(
+          this.ship.position.x,
+          this.ship.position.y - 0.25,
+          this.ship.position.z
+        );
       }
+      // ======================================================================
+      // SHOT 3 (4.6s - 6.2s): Touchdown Steam Cloud & Aft Boarding Ramp Lowering
+      // ======================================================================
+      else {
+        if (this.onSubtext) {
+          this.onSubtext("PHASE 3 // TOUCHDOWN CONFIRMED — VENTING COOLANT STEAM & LOWERING RAMP");
+        }
+        const p = Math.min(1, (t - 4.6) / 1.6);
+        const ease = p * p * (3 - 2 * p);
 
-      this.ship.position.set(0, yPos, zPos);
-      const pitch = p < 0.65 ? Math.sin((p / 0.65) * Math.PI) * 0.16 : 0;
-      const roll = p < 0.65 ? Math.sin(p * 10) * 0.08 * (1 - p) : 0;
-      this.ship.rotation.set(pitch, 0, roll);
+        this.ship.position.copy(this.endPos);
+        this.ship.rotation.set(0, 0, 0);
+        this.ship.setGearProgress(1);
+        this.ship.setRampProgress(ease);
+        this.ship.setRetroIntensity(Math.max(0, 1 - p * 2.2));
+        this.ship.setSteamIntensity(THREE.MathUtils.lerp(1.0, 0.45, ease));
 
-      // Hydraulic Landing Gear unfolds between p = 0.25 and p = 0.68
-      const gearP = Math.max(0, Math.min(1, (p - 0.25) / 0.43));
-      this.ship.setGearProgress(gearP);
-
-      // Belly VTOL Retro-Thrusters fire between p = 0.3 and p = 0.85
-      const retroVal = p > 0.3 && p < 0.88 ? Math.sin(((p - 0.3) / 0.58) * Math.PI) : 0;
-      this.ship.setRetroThrust(retroVal);
-
-      // Suspension bounce & expanding plasma shockwave on touchdown (p >= 0.78)
-      if (p >= 0.78) {
-        const tp = (p - 0.78) / 0.22;
-        const bounce = -Math.sin(tp * Math.PI * 2.2) * Math.exp(-tp * 3.5) * 0.26;
-        this.ship.setSuspensionBounce(bounce);
-
-        this.shockwave.scale.setScalar(1 + tp * 7.5);
-        this.shockwave.material.opacity = (1 - tp) * 0.85;
-
-        // Lower aft boarding ramp
-        const rampP = Math.max(0, Math.min(1, (tp - 0.15) / 0.85));
-        this.ship.setRampProgress(rampP);
-      } else {
-        this.ship.setSuspensionBounce(0);
-        this.ship.setRampProgress(0);
-      }
-
-      // Dramatic two-shot camera during Landing
-      if (p < 0.52) {
-        // Shot 1: Wide cinematic tracking shot showing planet pad & descending starship
-        this.camera.position.set(14, 7.5, 16);
-        this.camera.lookAt(this.ship.position.x, this.ship.position.y - 0.5, this.ship.position.z);
-      } else {
-        // Shot 2: Low-angle pad-level shot showcasing the hydraulic gear, retro-thrusters & boarding ramp!
-        const angle = 0.65 + (p - 0.52) * 1.1;
-        this.camera.position.set(Math.sin(angle) * 9.5, 2.1, Math.cos(angle) * 9.5);
-        this.camera.lookAt(0, this.ship.position.y - 0.2, 0.5);
-      }
-    } else if (this.type === "TAKEOFF") {
-      // Phase 1 (0..0.3): Retract aft boarding ramp & ignite VTOL thrusters
-      // Phase 2 (0.3..0.7): Vertical liftoff & fold hydraulic landing gear
-      // Phase 3 (0.7..1.0): Pitch up & blast forward into orbital flight!
-      if (p < 0.32) {
-        this.onStageText("SEALING AFT AIRLOCK // VTOL THRUSTERS IGNITED");
-        if (!this.gearSoundPlayed) {
-          this.gearSoundPlayed = true;
+        if (!this.rampSfxPlayed) {
+          this.rampSfxPlayed = true;
           Audio.sfx.hydraulics();
         }
-      } else if (p < 0.7) {
-        this.onStageText("VERTICAL LIFTOFF // RETRACTING LANDING GEAR");
-      } else {
-        this.onStageText("MAIN ION DRIVE ENGAGED // ORBITAL ASCENT");
+
+        this.camera.position.set(
+          this.endPos.x + THREE.MathUtils.lerp(5.2, 3.6, ease),
+          this.endPos.y + THREE.MathUtils.lerp(1.2, 1.8, ease),
+          this.endPos.z + THREE.MathUtils.lerp(6.8, 7.6, ease)
+        );
+        this.camera.lookAt(this.endPos.x, this.endPos.y + 0.1, this.endPos.z + 1.2);
       }
+    } else if (this.mode === "TAKEOFF") {
+      // ======================================================================
+      // TAKEOFF SEQUENCE (0.0s - 4.6s)
+      // ======================================================================
+      if (t < 1.8) {
+        if (this.onSubtext) {
+          this.onSubtext("PHASE 1 // SEALING BOARDING RAMP & IGNITING VTOL LAUNCH STEAM");
+        }
+        const p = t / 1.8;
+        const ease = p * p * (3 - 2 * p);
 
-      const rampP = 1 - Math.max(0, Math.min(1, p / 0.28));
-      this.ship.setRampProgress(rampP);
+        this.ship.setRampProgress(1 - ease);
+        this.ship.setGearProgress(1);
+        this.ship.setRetroIntensity(ease);
+        this.ship.setSteamIntensity(1.0);
+        this.ship.position.copy(this.startPos);
+        this.ship.position.y += Math.pow(p, 2) * 2.6;
 
-      const gearP = 1 - Math.max(0, Math.min(1, (p - 0.32) / 0.38));
-      this.ship.setGearProgress(gearP);
-
-      const retroVal = p < 0.75 ? Math.sin((p / 0.75) * Math.PI) : 0;
-      this.ship.setRetroThrust(retroVal);
-
-      const yPos = 1.45 + Math.pow(Math.max(0, (p - 0.18) / 0.82), 1.7) * 20;
-      const zPos = -Math.pow(Math.max(0, (p - 0.55) / 0.45), 2.0) * 28;
-      const pitch = p > 0.45 ? Math.sin(((p - 0.45) / 0.55) * Math.PI) * 0.28 : 0;
-
-      this.ship.position.set(0, yPos, zPos);
-      this.ship.rotation.set(pitch, 0, 0);
-
-      // Sweeping pad-level camera looking up as the ship climbs into space
-      const camAng = -0.7 + p * 1.4;
-      this.camera.position.set(Math.sin(camAng) * 11, 2.8 + p * 6, Math.cos(camAng) * 11);
-      this.camera.lookAt(this.ship.position);
-    } else {
-      // "LAUNCH" — Opening Cinematic Showcase of the Aegis Vanguard in Orbit
-      if (p < 0.5) {
-        this.onStageText("AEGIS VANGUARD // DEEP SPACE EXPLORATION VESSEL");
-      } else {
-        this.onStageText("HYPERDRIVE & PLANETARY SYSTEMS ONLINE // HELM READY");
-      }
-
-      this.ship.setGearProgress(0);
-      this.ship.setRampProgress(0);
-      this.ship.setRetroThrust(0);
-
-      const zPos = 62 - ease * 14;
-      this.ship.position.set(0, 18, zPos);
-      this.ship.rotation.set(-0.18, 0, Math.sin(p * Math.PI * 2) * 0.12);
-      if (this.ship.__quantumRing) {
-        this.ship.__quantumRing.rotation.z += dt * 5;
-      }
-
-      if (p < 0.52) {
-        // Shot 1: Heroic close-up flyby past the nose and quantum ring
-        const sp = p / 0.52;
-        this.camera.position.set(-5.5 + sp * 2, 18.8, zPos - 7 + sp * 14);
+        this.camera.position.set(
+          this.startPos.x - 7.8,
+          this.startPos.y + 1.4,
+          this.startPos.z + 7.8
+        );
         this.camera.lookAt(this.ship.position);
       } else {
-        // Shot 2: Sweeping behind the glowing triple engines into the cockpit/chase view
-        const sp = (p - 0.52) / 0.48;
-        const ang = (1 - sp) * 0.9;
+        if (this.onSubtext) {
+          this.onSubtext("PHASE 2 // RETRACTING LANDING GEAR — SUPERSONIC ORBITAL CLIMB");
+        }
+        const p = Math.min(1, (t - 1.8) / 2.8);
+        const ease = p * p;
+
+        if (!this.gearSfxPlayed) {
+          this.gearSfxPlayed = true;
+          Audio.sfx.hydraulics();
+          Audio.sfx.steam(0.85, 2.2);
+        }
+
+        this.ship.setRampProgress(0);
+        this.ship.setGearProgress(Math.max(0, 1 - p * 1.6));
+        this.ship.setRetroIntensity(Math.max(0, 1 - p * 1.2));
+        this.ship.setSteamIntensity(Math.max(0, 1 - p * 1.35));
+
+        this.ship.position.lerpVectors(this.midPos, this.endPos, ease);
+        this.ship.rotation.set(THREE.MathUtils.lerp(0, 0.2, ease), 0, 0);
+
         this.camera.position.set(
-          Math.sin(ang) * 13,
-          18 + 3.8,
-          zPos + Math.cos(ang) * 13
+          this.ship.position.x + THREE.MathUtils.lerp(-6.5, 0, p),
+          this.ship.position.y + THREE.MathUtils.lerp(1.6, 3.2, p),
+          this.ship.position.z + THREE.MathUtils.lerp(9.0, 12.5, p)
         );
-        this.camera.lookAt(0, 16, zPos - 15);
+        this.camera.lookAt(this.ship.position);
+      }
+    } else {
+      // ======================================================================
+      // OPENING MISSION LAUNCH FLYBY (0.0s - 4.0s)
+      // ======================================================================
+      const p = Math.min(1, t / this.duration);
+      const ease = 1 - Math.pow(1 - p, 3);
+
+      if (this.onSubtext) {
+        this.onSubtext(
+          p < 0.55
+            ? "PHASE 1 // CLEARING ORBITAL DOCKING CORRIDOR"
+            : "PHASE 2 // ALL SYSTEMS NOMINAL — TRANSFERRING HELM TO PILOT"
+        );
+      }
+
+      this.ship.position.lerpVectors(this.startPos, this.endPos, ease);
+      this.ship.rotation.set(-0.18, 0, 0);
+
+      if (p < 0.55) {
+        this.camera.position.set(6.5, 17.5, 58.0);
+        this.camera.lookAt(this.ship.position);
+      } else {
+        const subP = (p - 0.55) / 0.45;
+        const cEase = subP * subP * (3 - 2 * subP);
+        this.camera.position.set(
+          THREE.MathUtils.lerp(6.5, this.ship.position.x, cEase),
+          THREE.MathUtils.lerp(17.5, this.ship.position.y + 3.2, cEase),
+          THREE.MathUtils.lerp(58.0, this.ship.position.z + 12.0, cEase)
+        );
+        this.camera.lookAt(this.ship.position);
       }
     }
 
-    if (this.time >= this.duration) {
-      this.finish();
-      return true;
+    this.ship.updateMatrixWorld();
+    if (this.ship.updateSteam) {
+      this.ship.updateSteam(dt, t);
     }
-    return false;
+
+    if (t >= this.duration) {
+      this.finish();
+    }
   }
 
   finish() {
+    if (!this.active) return;
     this.active = false;
-    this.ship.setRetroThrust(0);
-    this.ship.setSuspensionBounce(0);
-    if (this.shockwave) {
-      this.scene.remove(this.shockwave);
+    this.ship.setRetroIntensity(0);
+    if (this.mode !== "LANDING") {
+      this.ship.setSteamIntensity(0);
+    } else {
+      this.ship.setSteamIntensity(0.35);
     }
-    if (this.onComplete) this.onComplete();
+    if (this.onDone) this.onDone();
   }
 
   dispose() {
-    if (this.shockwave) {
-      this.scene.remove(this.shockwave);
-    }
+    this.active = false;
   }
 }

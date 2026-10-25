@@ -5,7 +5,7 @@
   "description": "Stellar Voyage — 3D Space Game with Walkable Starship, Cutscenes, Landing Animations, and Alien Fauna",
   "main": "js/core.js",
   "scripts": {
-    "build": "mkdir -p dist && cp -r index.html css js vendor dist/",
+    "build": "mkdir -p dist && cp -r index.html css js vendor assets dist/",
     "start": "python3 -m http.server 8080 --bind 0.0.0.0"
   },
   "repository": {

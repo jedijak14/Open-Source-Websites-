@@ -498,13 +498,25 @@ const engageWarp = () => {
       } else {
         syncVisibility();
       }
-      Audio.startMusic();
+      Audio.startMusic(nextSysIndex);
       Audio.sfx.arrive();
       saveGame();
     },
     (subText) => UI.setWarpSubtext(subText)
   );
   activeCutscene.start();
+};
+
+const cycleOnlineShipHull = () => {
+  if (state !== STATE.PLAYING) return;
+  const hullName = ship.cycleHullModel ? ship.cycleHullModel() : "";
+  Audio.sfx.switch();
+  if (camMode === CAM.COCKPIT || camMode === CAM.SHIP_INTERIOR) {
+    setCam(CAM.THIRD);
+  }
+  if (hullName) {
+    UI.setWarpStatus(`ACTIVE HULL: ${hullName}`);
+  }
 };
 
 const chargeWarp = (dt) => {
@@ -627,6 +639,7 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "KeyI") toggleShipInteriorWalk();
     if (e.code === "KeyL") toggleLandOrTakeoff();
     if (e.code === "KeyC") cycleCam();
+    if (e.code === "KeyH") cycleOnlineShipHull();
     if (e.code === "Tab" || e.code === "KeyT") {
       e.preventDefault();
       togglePlanetSurfaceWalk();
@@ -753,6 +766,7 @@ UI.on("hudWarp", () => {
 UI.on("hudLand", () => toggleLandOrTakeoff());
 UI.on("hudShipWalk", () => toggleShipInteriorWalk());
 UI.on("hudFoot", () => togglePlanetSurfaceWalk());
+UI.on("hudHull", () => cycleOnlineShipHull());
 UI.on("hudCam", () => {
   if (state === STATE.PLAYING) cycleCam();
 });
@@ -775,6 +789,25 @@ const update = (now) => {
   updateAnimals(planet, dt);
   if (cockpit.updateInterior) {
     cockpit.updateInterior(dt, warpCharge);
+  }
+  if (state === STATE.PLAYING) {
+    if (shipState.landed) {
+      // Keep warm coolant & hydraulic steam billowing out from under the landed spaceship!
+      ship.setSteamIntensity(0.42 + Math.sin(now * 0.0022) * 0.12);
+    } else {
+      // Ground-effect proximity steam when hovering low near the landing pad
+      const distPad = Math.hypot(shipState.pos.x, shipState.pos.z);
+      if (shipState.pos.y < 14 && distPad < 24) {
+        const altFactor = Math.max(0, 1 - shipState.pos.y / 14);
+        const padFactor = Math.max(0, 1 - distPad / 24);
+        ship.setSteamIntensity(altFactor * padFactor * 0.85);
+      } else {
+        ship.setSteamIntensity(0);
+      }
+    }
+    if (ship.updateSteam) {
+      ship.updateSteam(dt, now * 0.001);
+    }
   }
 
   // ---------- MENU / CREDITS ATTRACT SCENE ----------

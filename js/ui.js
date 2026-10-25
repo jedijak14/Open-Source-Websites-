@@ -71,6 +71,7 @@ export const UI = (() => {
   bind("hud-btn-land", "hudLand");
   bind("hud-btn-ship-walk", "hudShipWalk");
   bind("hud-btn-foot", "hudFoot");
+  bind("hud-btn-hull", "hudHull");
   bind("hud-btn-cam", "hudCam");
   bind("hud-btn-menu", "hudMenu");
 

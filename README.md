@@ -1,45 +1,40 @@
-# Stellar Voyage — Open Source Space Game
+# Stellar Voyage — Open Source 3D Space Exploration Game
 
-A fully client-side, first-person space flight game built with **Three.js** (r164). Every asset — cockpit, ship, planet, atmosphere, animals, PBR textures, and music — is generated procedurally in the browser. No external models, textures, or audio files are required.
+A 3D WebGL space flight and planetary exploration game built with **Three.js (r164)**, featuring online 3D `.glb` / `.obj` spacecraft and outpost models, public-domain/CC-BY space soundtracks, Kenney CC0 landing/steam/thruster sound effects, a walkable 3-bay starship interior, multi-shot cinematic cutscenes, and billowing volumetric landing steam clouds.
 
-## Features
+## Key Features
 
-- **Cockpit (first-person)** — pilot's seat with PBR metal panels, overhead switch panel (FLOOD / GEAR / SHADE / COMS / AUX), dashboard screens, throttle, and a sealed "FIRE LOCKER" door, all inspired by the reference cockpit imagery.
-- **Ship (third-person)** — flyable starship with fuselage, cockpit bubble, wings, nacelles, aft engines, and landing gear. Engine glow pulses with throttle.
-- **Cinematic camera** — smooth orbital camera around the ship.
-- **First-person on foot** — exit the ship and explore the planet surface (TAB / T).
-- **Warp drive** — charge the warp core in the cockpit (hold SPACE), engage (E), then a hyperspeed star-stretch + tunnel cutscene delivers you to a new planet.
-- **Procedural planet** — PBR surface (color/normal/roughness), atmosphere shell, craters, and a landing pad.
-- **Unique animals** — three creature types (floater, grazer, skitter) with simple wander AI on the surface.
-- **Menu system** — Start New Game, Continue, Load Game, Credits. Progress autosaves to localStorage.
-- **Procedural audio** — ambient space score and SFX synthesized with the Web Audio API (no audio files).
-- **HUD** — warp charge meter, speed, camera mode, system status.
+- **Online 3D Spaceship Models (`GLTFLoader` & `OBJLoader`)** — Fly and switch between 4 loaded 3D starship hulls (`H` key or **🚀 Ship Hull** button):
+  1. **Starfighter MK-I** (`SpaceFighter01.obj` + 512px Livery + NASA Orbiter dorsal bridge)
+  2. **NASA Space Shuttle Orbiter OV-105** (`shuttle_orbiter.glb`)
+  3. **Vanguard Deep-Space Cruiser** (`spaceship.glb`)
+  4. **Heavy Shuttle Stack MK-IV** (`space_shuttle_hd.glb`)
+- **Volumetric 3D Landing & Takeoff Steam System** — 85 billowing 3D cloud sprites and 4 high-pressure lateral steam relief valves erupt radially across the landing pad during VTOL descent, touchdown shockwave, pad cooling, and vertical liftoff.
+- **Public Space Music & Kenney CC0 Sci-Fi Audio** — 5 space soundtracks (*Scott Buckley — Shadows And Dust*, *Space Voyage*, *Deep Orbit*, *Launch Belt*, *Project Utopia*) and 12 real `.ogg` sci-fi sound effects (looping turbine engine, high-pressure steam hiss, steam vent burst, touchdown thud, hydraulic gear, warp jump, metallic deck footsteps) processed through a Web Audio convolver reverb and dynamics compressor.
+- **Walkable 3-Bay Starship Interior (`I`)** — Unstrap from the pilot seat at any time and walk through the Forward Flight Bridge, Science & Astrogation Bay (with rotating 3D Holo-Table), and Aft Quantum Reactor & Airlock.
+- **Cinematic Cutscenes** — Multi-shot Quantum Warp Jump (`SPACE`), Animated Planetary Landing with Hydraulic Gear & Billowing Steam (`L`), Vertical Liftoff (`L`), and Opening Orbital Launch.
+- **Multi-Planet Biomes, NASA Outpost & Animated Fauna** — 5 star systems with NASA planetary surface maps, orbiting International Space Station (`iss.glb`), Lunar Lander (`lunar_lander.glb`), Habitat Base (`habitat_base.glb`), EVA Astronaut (`astronaut.glb`), alien biome creatures, and animated glTF wildlife (`fox.glb`, `flamingo.glb`, `parrot.glb`, `stork.glb`).
 
-## Controls (in-game)
+## Controls
 
 | Key | Action |
 |-----|--------|
-| W / S | Throttle up / down |
-| A / D | Roll left / right |
-| Q / E | Yaw left / right *(E also engages warp when charged / interacts)* |
-| R / F | Pitch up / down |
-| Mouse | Look around (click to lock pointer) |
-| C | Cycle camera: Cockpit → Third Person → Cinematic |
-| SPACE | Charge warp drive (hold) |
-| T | First-person on foot (when landed) |
-| TAB | Exit / re-enter ship |
-| Escape | Unlock mouse / return to menu |
+| **W / S** | Throttle up / down (Flight) or Walk forward / back (Ship Deck / Planet) |
+| **A / D** | Yaw left / right (Flight) or Strafe left / right (Walk) |
+| **R / F** | Pitch up / down |
+| **Q / E** | Roll left / right (**E** also interacts with Pilot Seat, Holo-Table & Airlock) |
+| **I** | Toggle **Walk Around Inside Ship** (3-Bay Interior Deck) |
+| **L** | Trigger **Animated Planetary Landing (with Steam)** / **Takeoff Cutscene** |
+| **TAB / T** | Disembark / Walk on Planet Surface |
+| **H** | Cycle **Online 3D Spaceship Hull Model** |
+| **C** | Cycle Flight Camera: Cockpit → Third Person → Cinematic |
+| **SPACE** | Hold to charge & engage **Quantum Warp Cutscene** |
+| **ENTER** | Skip active cutscene / Interact |
+| **ESC** | Pause Menu |
 
 ## Credits
 
-- **Game Design & Code:** Arena Agent (Open-Source-Websites-)
-- **Engine:** Three.js r164
-- **Audio:** Procedural Web Audio synthesis
-- **Textures & Models:** Procedurally generated PBR assets
-- **Inspiration:** Reference cockpit & warp comparison imagery
-
-## Running
-
-Open `index.html` in a modern browser, or serve the folder with any static server (e.g. `python3 -m http.server 8080`). Click the canvas to start audio and capture the pointer.
-
-This is free and unencumbered software released into the public domain (see `LICENSE`).
+- **Game Design & Code:** Arena Agent (`Open-Source-Websites-`)
+- **3D Engine & Post-FX:** Three.js r164 + PMREM RoomEnvironment IBL + UnrealBloomPass HDR
+- **3D Models:** NASA 3D Resources (`shuttle_orbiter.glb`, `iss.glb`, `lunar_lander.glb`, `habitat_base.glb`, `astronaut.glb`), Jerome Etienne (`SpaceFighter01`), Liz Reddington (`spaceship.glb`), Khronos / Three.js (`fox.glb`, `flamingo.glb`, `parrot.glb`, `stork.glb`)
+- **Music & Sound Effects:** Scott Buckley (*Shadows And Dust*, CC-BY 4.0), Kenney Sci-Fi Sounds (CC0), Three.js Audio

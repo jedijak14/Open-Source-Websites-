@@ -13,6 +13,7 @@
 import * as THREE from "three";
 import { Textures } from "./textures.js";
 import Audio from "./audio.js";
+import { sharedGLTFLoader } from "./ship.js";
 
 export const buildCockpit = () => {
   const cockpit = new THREE.Group();
@@ -311,6 +312,29 @@ export const buildCockpit = () => {
   );
   holoRing.rotation.x = Math.PI / 2.6;
   holoGroup.add(holoPlanet, holoRing);
+
+  // Load miniature holographic 3D Spaceship (.glb) orbiting the Holo-Table planet
+  sharedGLTFLoader.load(
+    "./assets/models/shuttle_orbiter.glb",
+    (gltf) => {
+      const miniShip = gltf.scene.clone(true);
+      const holoShipMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.85
+      });
+      miniShip.traverse((c) => {
+        if (c.isMesh) c.material = holoShipMat;
+      });
+      miniShip.scale.setScalar(0.14);
+      miniShip.position.set(0.52, 0.18, 0);
+      holoGroup.add(miniShip);
+    },
+    undefined,
+    () => {}
+  );
+
   holoTable.add(holoGroup);
   cockpit.add(holoTable);
   cockpit.__holoGroup = holoGroup;
