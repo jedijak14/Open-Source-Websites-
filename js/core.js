@@ -113,19 +113,21 @@ scene.add(ambient);
 let solarHours = 13.5;
 
 const updateSolarCycle = (dt) => {
-  solarHours = (solarHours + dt * 0.025) % 24;
+  solarHours = (solarHours + dt * 0.015) % 24;
   UI.setSolarTime(solarHours);
 
-  // Convert solarHours (0..24, noon = 12) to sun elevation angle
-  const sunAngle = ((solarHours - 6.0) / 24.0) * Math.PI * 2.0;
-  const sx = Math.cos(sunAngle) * 1400;
-  const sy = Math.sin(sunAngle) * 1850 + 350;
-  const sz = 920;
+  // Convert solarHours (at 13.5h, sun shines from upper-left-front (-0.52, 0.34, 0.78)
+  // creating the exact right-side crescent terminator shadow from NASA orbital imagery!)
+  const phase = ((solarHours - 13.5) / 24.0) * Math.PI * 2.0;
+  const baseAzimuth = -0.58 + phase;
+  const sx = Math.sin(baseAzimuth) * 1900;
+  const sy = 760 + Math.sin(phase) * 450;
+  const sz = Math.cos(baseAzimuth) * 1900;
   sun.position.set(sx, sy, sz);
 
   const sunDir = sun.position.clone().normalize();
   if (planet) {
-    if (planet.innerAtmosMat) planet.innerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
+    if (planet.globeMat) planet.globeMat.uniforms.uSunDir.value.copy(sunDir);
     if (planet.outerAtmosMat) planet.outerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
     if (planet.oceanMat) planet.oceanMat.uniforms.uSunDir.value.copy(sunDir);
   }
@@ -189,12 +191,14 @@ const loadPlanetSystem = (sysIdx) => {
 
 loadPlanetSystem(0);
 
+const ORBIT_SHIP_POS = new THREE.Vector3(0, -1800, 4280);
+
 // ---------------- Physics States (Ship, Interior Walk & Planet/Water Walk) ----------------
 const shipState = {
-  pos: new THREE.Vector3(0, 68, 220),
+  pos: ORBIT_SHIP_POS.clone(),
   vel: new THREE.Vector3(),
   speed: 0,
-  maxSpeed: 1.35,
+  maxSpeed: 1.85,
   thrust: 0,
   gForce: 1.0,
   landed: false,
@@ -273,7 +277,7 @@ const qLook = new THREE.Quaternion();
 const qFinal = new THREE.Quaternion();
 
 // ---------------- Save / Load ----------------
-const SAVE_KEY = "stellarvoyage_save_v4";
+const SAVE_KEY = "stellarvoyage_save_v5";
 
 const loadGame = () => {
   try {
@@ -510,7 +514,7 @@ const startTakeoffCutscene = () => {
     () => {
       activeCutscene = null;
       shipState.landed = false;
-      shipState.pos.set(0, 68, 210);
+      shipState.pos.copy(ORBIT_SHIP_POS);
       shipState.vel.set(0, 0, -12);
       shipState.yaw = 0;
       shipState.pitch = 0;
@@ -606,7 +610,7 @@ const engageWarp = () => {
       loadPlanetSystem(nextSysIndex);
 
       shipState.landed = false;
-      shipState.pos.set(0, 68, 220);
+      shipState.pos.copy(ORBIT_SHIP_POS);
       shipState.vel.set(0, 0, 0);
       shipState.speed = 0;
       shipState.thrust = 0;
@@ -923,7 +927,7 @@ const startNewOrSavedGame = (useSaved = false) => {
       cockpit,
       () => {
         activeCutscene = null;
-        shipState.pos.set(0, 68, 220);
+        shipState.pos.copy(ORBIT_SHIP_POS);
         shipState.vel.set(0, 0, 0);
         shipState.yaw = 0;
         shipState.pitch = 0;
@@ -989,6 +993,23 @@ const update = (now) => {
   const timeSec = now * 0.001;
 
   updateSolarCycle(dt);
+
+  // Show the North Pole Surface & Ocean Exploration Zone when descending/landed/walking,
+  // and hide it in deep orbital space so the planet globe silhouette is a pure, flawless sphere!
+  if (planet && planet.surfaceDetailGroup) {
+    const inSurfaceCutscene =
+      state === STATE.CUTSCENE &&
+      activeCutscene &&
+      (activeCutscene.mode === "LANDING" || activeCutscene.mode === "TAKEOFF");
+    const nearNorthPole =
+      shipState.pos.y > -550 && Math.hypot(shipState.pos.x, shipState.pos.z) < 950;
+    planet.surfaceDetailGroup.visible =
+      inSurfaceCutscene ||
+      shipState.landed ||
+      camMode === CAM.FOOT ||
+      (state === STATE.PLAYING && nearNorthPole);
+  }
+
   updateAnimals(planet, dt, timeSec);
 
   if (cockpit.updateInterior) {
@@ -1000,7 +1021,7 @@ const update = (now) => {
       ship.setSteamIntensity(0.42 + Math.sin(now * 0.0022) * 0.12);
     } else {
       const distPad = Math.hypot(shipState.pos.x, shipState.pos.z);
-      if (shipState.pos.y < 18 && distPad < 30) {
+      if (shipState.pos.y > -20 && shipState.pos.y < 18 && distPad < 30) {
         const altFactor = Math.max(0, 1 - shipState.pos.y / 18);
         const padFactor = Math.max(0, 1 - distPad / 30);
         ship.setSteamIntensity(altFactor * padFactor * 0.85);
@@ -1016,21 +1037,22 @@ const update = (now) => {
   // ---------- MENU / CREDITS ATTRACT SCENE ----------
   if (state === STATE.MENU || state === STATE.CREDITS) {
     menuOrbitT += dt * 0.25;
-    shipState.pos.set(0, 68, 220);
-    shipState.yaw = Math.sin(menuOrbitT * 0.5) * 0.14;
+    shipState.pos.set(0, -1804.2, 4280);
+    shipState.yaw = Math.sin(menuOrbitT * 0.5) * 0.12;
     shipState.pitch = 0;
-    shipState.roll = Math.cos(menuOrbitT * 0.5) * 0.07;
+    shipState.roll = Math.cos(menuOrbitT * 0.5) * 0.06;
     if (ship.__quantumRing) ship.__quantumRing.rotation.z += dt * 1.5;
     updateShipTransform();
     syncVisibility();
     updateAtmosphericEnvironment(shipState.pos, false);
 
+    // Frame the colossal full-screen planet globe (R=1800 at (0,-1800,0)) dead-center!
     camera.position.set(
-      shipState.pos.x + Math.sin(menuOrbitT) * 14.0,
-      shipState.pos.y + 3.6,
-      shipState.pos.z + Math.cos(menuOrbitT) * 14.0
+      Math.sin(menuOrbitT * 0.6) * 3.2,
+      -1800,
+      4294
     );
-    camera.lookAt(shipState.pos);
+    camera.lookAt(0, -1800, 0);
     composer.render();
     requestAnimationFrame(update);
     return;
@@ -1511,18 +1533,21 @@ const update = (now) => {
       // Integrate 3D Newtonian + Aerodynamic Velocity Vector
       const desiredVel = shipState.forward
         .clone()
-        .multiplyScalar(shipState.speed * 65);
+        .multiplyScalar(shipState.speed * 115);
       shipState.vel.lerp(desiredVel, 4.2 * dt);
 
-      // Subtle Planetary Gravity Pull when hovering at very low speed in atmosphere
-      if (shipState.pos.y < 95 && shipState.thrust < 0.15) {
+      const inNorthPoleZone =
+        shipState.pos.y > -450 && Math.hypot(shipState.pos.x, shipState.pos.z) < 650;
+
+      // Subtle Planetary Gravity Pull when hovering at low speed near the landing zone
+      if (inNorthPoleZone && shipState.pos.y < 95 && shipState.thrust < 0.15) {
         shipState.vel.y -= planetGravity * 0.22 * dt;
       }
 
       shipState.pos.addScaledVector(shipState.vel, dt);
 
       // Dynamic G-Force calculation from linear acceleration + banking turn load
-      const accelG = Math.abs(shipState.speed - prevSpeed) / Math.max(0.008, dt) * 1.8;
+      const accelG = (Math.abs(shipState.speed - prevSpeed) / Math.max(0.008, dt)) * 1.8;
       const turnG = Math.abs(shipState.roll) * 1.45;
       shipState.gForce = THREE.MathUtils.lerp(
         shipState.gForce,
@@ -1530,36 +1555,51 @@ const update = (now) => {
         6 * dt
       );
 
-      // Check Terrain & Ocean Surface Collision / Hydro-Buoyancy!
-      const terrainFloorY =
-        getSurfaceY(PLANET_RADIUS, shipState.pos.x, shipState.pos.z, currentSystemIndex) -
-        PLANET_RADIUS +
-        1.65;
-      const oceanSurfaceY =
-        getWaterSurfaceWorldY(
-          PLANET_RADIUS,
-          shipState.pos.x,
-          shipState.pos.z,
-          timeSec,
-          currentSystemIndex
-        ) + 1.35;
+      if (inNorthPoleZone) {
+        // Check North Pole Terrain & Ocean Surface Collision / Hydro-Buoyancy!
+        const terrainFloorY =
+          getSurfaceY(PLANET_RADIUS, shipState.pos.x, shipState.pos.z, currentSystemIndex) -
+          PLANET_RADIUS +
+          1.65;
+        const oceanSurfaceY =
+          getWaterSurfaceWorldY(
+            PLANET_RADIUS,
+            shipState.pos.x,
+            shipState.pos.z,
+            timeSec,
+            currentSystemIndex
+          ) + 1.35;
 
-      if (sys.hasWater && oceanSurfaceY > terrainFloorY && shipState.pos.y < oceanSurfaceY) {
-        // Ship is skimming or floating on the planetary ocean!
-        shipState.pos.y = THREE.MathUtils.lerp(shipState.pos.y, oceanSurfaceY, 8 * dt);
-        shipState.vel.y = Math.max(0, shipState.vel.y);
-        shipState.pitch = THREE.MathUtils.lerp(shipState.pitch, 0.04, 4 * dt);
-        ship.setSteamIntensity(0.65);
-        if (Math.random() < 0.25) {
-          spawnWaterRipple(planet, shipState.pos.x, shipState.pos.z, 7.5);
+        if (sys.hasWater && oceanSurfaceY > terrainFloorY && shipState.pos.y < oceanSurfaceY) {
+          shipState.pos.y = THREE.MathUtils.lerp(shipState.pos.y, oceanSurfaceY, 8 * dt);
+          shipState.vel.y = Math.max(0, shipState.vel.y);
+          shipState.pitch = THREE.MathUtils.lerp(shipState.pitch, 0.04, 4 * dt);
+          ship.setSteamIntensity(0.65);
+          if (Math.random() < 0.25) {
+            spawnWaterRipple(planet, shipState.pos.x, shipState.pos.z, 7.5);
+          }
+          UI.setFlightState("OCEAN HYDRO-SKIM");
+        } else if (shipState.pos.y < terrainFloorY) {
+          shipState.pos.y = terrainFloorY;
+          shipState.vel.y = Math.max(0, shipState.vel.y);
+          UI.setFlightState("LOW ALTITUDE");
+        } else {
+          UI.setFlightState(shipState.pos.y < 120 ? "ATMOSPHERIC FLIGHT" : "ORBITAL FLIGHT");
         }
-        UI.setFlightState("OCEAN HYDRO-SKIM");
-      } else if (shipState.pos.y < terrainFloorY) {
-        shipState.pos.y = terrainFloorY;
-        shipState.vel.y = Math.max(0, shipState.vel.y);
-        UI.setFlightState("LOW ALTITUDE");
       } else {
-        UI.setFlightState(shipState.pos.y < 120 ? "ATMOSPHERIC FLIGHT" : "ORBITAL FLIGHT");
+        // 3D Spherical Planetary Boundary Check in Orbital Space
+        const dx = shipState.pos.x;
+        const dy = shipState.pos.y + PLANET_RADIUS;
+        const dz = shipState.pos.z;
+        const distCenter = Math.hypot(dx, dy, dz);
+        const minOrbitRad = PLANET_RADIUS + 18.0;
+        if (distCenter < minOrbitRad && distCenter > 0.001) {
+          const s = minOrbitRad / distCenter;
+          shipState.pos.set(dx * s, dy * s - PLANET_RADIUS, dz * s);
+          UI.setFlightState("UPPER ATMOSPHERE SKIM");
+        } else {
+          UI.setFlightState(distCenter < PLANET_RADIUS + 180 ? "ATMOSPHERIC FLIGHT" : "ORBITAL SPACE");
+        }
       }
     } else {
       shipState.speed = 0;

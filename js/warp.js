@@ -301,10 +301,10 @@ export class FlightCutscene {
       Audio.sfx.hydraulics();
       Audio.sfx.steam(0.95, 2.8);
     } else {
-      // "LAUNCH" opening orbital flyby over colossal planet
-      this.startPos.set(0, 74.0, 290.0);
-      this.midPos.set(0, 70.0, 250.0);
-      this.endPos.set(0, 68.0, 220.0);
+      // "LAUNCH" opening orbital flyby facing the colossal full-screen planet globe
+      this.startPos.set(0, -1800.0, 4420.0);
+      this.midPos.set(0, -1800.0, 4350.0);
+      this.endPos.set(0, -1800.0, 4280.0);
       this.ship.position.copy(this.startPos);
       this.ship.setGearProgress(0);
       this.ship.setRampProgress(0);
@@ -492,17 +492,17 @@ export class FlightCutscene {
       this.ship.rotation.set(0, 0, 0);
 
       if (p < 0.55) {
-        this.camera.position.set(8.5, 72.5, 234.0);
-        this.camera.lookAt(this.ship.position);
+        this.camera.position.set(6.5, -1797.5, 4312.0);
+        this.camera.lookAt(0, -1800, 0);
       } else {
         const subP = (p - 0.55) / 0.45;
         const cEase = subP * subP * (3 - 2 * subP);
         this.camera.position.set(
-          THREE.MathUtils.lerp(8.5, this.ship.position.x, cEase),
-          THREE.MathUtils.lerp(72.5, this.ship.position.y + 3.4, cEase),
-          THREE.MathUtils.lerp(234.0, this.ship.position.z + 13.0, cEase)
+          THREE.MathUtils.lerp(6.5, this.ship.position.x, cEase),
+          THREE.MathUtils.lerp(-1797.5, this.ship.position.y + 3.4, cEase),
+          THREE.MathUtils.lerp(4312.0, this.ship.position.z + 13.0, cEase)
         );
-        this.camera.lookAt(this.ship.position);
+        this.camera.lookAt(0, -1800, 0);
       }
     }
 
