@@ -280,18 +280,18 @@ export class FlightCutscene {
     this.endQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
 
     if (mode === "LANDING") {
-      this.endPos.set(0, 1.45, 0); // North Pole Landing Pad
-      this.midPos.set(0, 19.5, 26.0);
-      this.startPos.set(0, 58.0, 120.0); // Descend through the upper cloud deck & atmosphere!
+      this.endPos.set(0, 3.65, 0); // North Pole Starport Plateau (+2.2m + 1.45m gear)
+      this.midPos.set(0, 22.0, 28.0);
+      this.startPos.set(0, 68.0, 130.0); // Descend through the upper cloud deck & atmosphere!
       this.ship.position.copy(this.startPos);
       this.ship.setGearProgress(0);
       this.ship.setRampProgress(0);
       this.ship.setRetroIntensity(0.2);
       this.ship.setSteamIntensity(0.25);
     } else if (mode === "TAKEOFF") {
-      this.startPos.set(0, 1.45, 0);
-      this.midPos.set(0, 16.0, -8.0);
-      this.endPos.set(0, 56.0, -95.0);
+      this.startPos.set(0, 3.65, 0);
+      this.midPos.set(0, 18.0, -8.0);
+      this.endPos.set(0, 65.0, -95.0);
       this.ship.position.copy(this.startPos);
       this.ship.setGearProgress(1);
       this.ship.setRampProgress(1);
@@ -302,9 +302,9 @@ export class FlightCutscene {
       Audio.sfx.steam(0.95, 2.8);
     } else {
       // "LAUNCH" opening orbital flyby over colossal planet
-      this.startPos.set(0, 62.0, 275.0);
-      this.midPos.set(0, 60.0, 240.0);
-      this.endPos.set(0, 58.0, 210.0);
+      this.startPos.set(0, 74.0, 290.0);
+      this.midPos.set(0, 70.0, 250.0);
+      this.endPos.set(0, 68.0, 220.0);
       this.ship.position.copy(this.startPos);
       this.ship.setGearProgress(0);
       this.ship.setRampProgress(0);
@@ -492,15 +492,15 @@ export class FlightCutscene {
       this.ship.rotation.set(0, 0, 0);
 
       if (p < 0.55) {
-        this.camera.position.set(8.5, 62.5, 224.0);
+        this.camera.position.set(8.5, 72.5, 234.0);
         this.camera.lookAt(this.ship.position);
       } else {
         const subP = (p - 0.55) / 0.45;
         const cEase = subP * subP * (3 - 2 * subP);
         this.camera.position.set(
           THREE.MathUtils.lerp(8.5, this.ship.position.x, cEase),
-          THREE.MathUtils.lerp(62.5, this.ship.position.y + 3.4, cEase),
-          THREE.MathUtils.lerp(224.0, this.ship.position.z + 13.0, cEase)
+          THREE.MathUtils.lerp(72.5, this.ship.position.y + 3.4, cEase),
+          THREE.MathUtils.lerp(234.0, this.ship.position.z + 13.0, cEase)
         );
         this.camera.lookAt(this.ship.position);
       }

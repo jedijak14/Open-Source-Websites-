@@ -566,6 +566,59 @@ export function playWarpArrival() {
   });
 }
 
+export function playSleepSound() {
+  initAudio();
+  if (isMuted) return;
+
+  playBuffer("arriveChime", { volume: 0.48, rate: 0.72, reverb: true });
+
+  const now = ctx.currentTime;
+  // Warm dreamy major-9th lullaby pad chord
+  [174.61, 220.0, 261.63, 329.63, 392.0].forEach((freq, i) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, now + i * 0.12);
+    gain.gain.setValueAtTime(0.0005, now + i * 0.12);
+    gain.gain.linearRampToValueAtTime(0.085, now + i * 0.12 + 0.45);
+    gain.gain.exponentialRampToValueAtTime(0.0008, now + 3.4);
+    osc.connect(gain);
+    gain.connect(sfxGain);
+    gain.connect(reverbSend);
+    osc.start(now + i * 0.12);
+    osc.stop(now + 3.5);
+  });
+}
+
+export function playSplashSound(intensity = 0.75) {
+  initAudio();
+  if (isMuted) return;
+
+  const now = ctx.currentTime;
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(420, now);
+  filter.frequency.exponentialRampToValueAtTime(980, now + 0.14);
+  filter.frequency.exponentialRampToValueAtTime(240, now + 0.55);
+  filter.Q.value = 2.2;
+
+  const gain = ctx.createGain();
+  const peak = Math.min(0.45, 0.28 * intensity);
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(peak, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(sfxGain);
+  gain.connect(reverbSend);
+  noise.start(now);
+  noise.stop(now + 0.62);
+}
+
 const AudioEngine = {
   start: initAudio,
   startMusic,
@@ -582,7 +635,9 @@ const AudioEngine = {
     warpCharge: startWarpChargeSfx,
     warpEngage: playWarpBoom,
     arrive: playWarpArrival,
-    footstep: playFootstep
+    footstep: playFootstep,
+    sleep: playSleepSound,
+    splash: playSplashSound
   }
 };
 

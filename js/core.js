@@ -1,12 +1,11 @@
 /**
- * Stellar Voyage — Core 3D Engine
+ * Stellar Voyage — Core 3D Engine & Physics Simulation
  * Features:
  * - Three.js r164 + PMREM RoomEnvironment IBL + UnrealBloomPass HDR Post-Processing
- * - Colossal Planets (R = 680) with Physical Rayleigh/Mie Atmosphere Shader,
- *   Rotating Volumetric Cloud Deck, and Dynamic Atmospheric Sky Entry
- * - Online 3D Spaceship & Outpost Models (.glb / .obj) + Volumetric Landing Steam
- * - Walkable 3-Bay Starship Interior (CAM.SHIP_INTERIOR) with interactive stations
- * - Full Cutscenes: Launch Intro, Multi-Shot Quantum Warp, Hydraulic Landing & Liftoff
+ * - Colossal Worlds (R = 1800) with 3D Sculpted Continents, Mountains, & Ocean Basins
+ * - Real 4-Wave Gerstner Ocean Shader & Archimedes Water Buoyancy / Swimming Physics
+ * - Walkable 3-Bay Starship Interior with Interactive Captain's Bed (Sleep & Solar Cycle)
+ * - 6-DOF Newtonian/Aerodynamic Flight Physics, G-Force Telemetry & Full Visor HUD
  */
 
 import * as THREE from "three";
@@ -26,7 +25,9 @@ import {
   buildPlanet,
   spawnAnimals,
   updateAnimals,
-  getSurfaceY
+  getSurfaceY,
+  getWaterSurfaceWorldY,
+  spawnWaterRipple
 } from "./planet.js";
 import { WarpCutscene, FlightCutscene } from "./warp.js";
 
@@ -34,6 +35,7 @@ import { WarpCutscene, FlightCutscene } from "./warp.js";
 const STATE = {
   MENU: "MENU",
   PLAYING: "PLAYING",
+  SLEEPING: "SLEEPING",
   WARP: "WARP",
   CUTSCENE: "CUTSCENE",
   CREDITS: "CREDITS"
@@ -64,13 +66,13 @@ renderer.toneMappingExposure = 1.18;
 
 const spaceBgColor = new THREE.Color(0x02040a);
 const atmosBgColor = new THREE.Color(0x0f2942);
+const underwaterBgColor = new THREE.Color(0x042f4b);
 const blendedSkyColor = new THREE.Color(0x02040a);
 
 const scene = new THREE.Scene();
 scene.background = blendedSkyColor;
 scene.fog = new THREE.FogExp2(0x02040a, 0.00012);
 
-// Real-time Image-Based Lighting (IBL) for metallic clearcoat PBR reflections
 const pmremGenerator = new THREE.PMREMGenerator(renderer);
 scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
@@ -78,29 +80,28 @@ const camera = new THREE.PerspectiveCamera(
   54,
   window.innerWidth / window.innerHeight,
   0.1,
-  14000
+  18000
 );
 
-// HDR Bloom Post-Processing Pipeline
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.52, // strength
-  0.4,  // radius
-  0.8   // threshold
+  0.52,
+  0.4,
+  0.8
 );
 const outputPass = new OutputPass();
 composer.addPass(renderPass);
 composer.addPass(bloomPass);
 composer.addPass(outputPass);
 
-// ---------------- Scene Lighting ----------------
-const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x1e293b, 0.85);
+// ---------------- Scene Lighting & Solar Cycle ----------------
+const hemi = new THREE.HemisphereLight(0x7dd3fc, 0x1e293b, 0.88);
 scene.add(hemi);
 
-const sun = new THREE.DirectionalLight(0xfffbeb, 1.75);
-sun.position.set(850, 1150, 620);
+const sun = new THREE.DirectionalLight(0xfffbeb, 1.8);
+sun.position.set(1400, 1850, 950);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
@@ -108,13 +109,35 @@ scene.add(sun);
 const ambient = new THREE.AmbientLight(0x334155, 0.68);
 scene.add(ambient);
 
+// Planetary Solar Clock (0..24 hours, advances continuously and jumps +8h when sleeping in bed!)
+let solarHours = 13.5;
+
+const updateSolarCycle = (dt) => {
+  solarHours = (solarHours + dt * 0.025) % 24;
+  UI.setSolarTime(solarHours);
+
+  // Convert solarHours (0..24, noon = 12) to sun elevation angle
+  const sunAngle = ((solarHours - 6.0) / 24.0) * Math.PI * 2.0;
+  const sx = Math.cos(sunAngle) * 1400;
+  const sy = Math.sin(sunAngle) * 1850 + 350;
+  const sz = 920;
+  sun.position.set(sx, sy, sz);
+
+  const sunDir = sun.position.clone().normalize();
+  if (planet) {
+    if (planet.innerAtmosMat) planet.innerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
+    if (planet.outerAtmosMat) planet.outerAtmosMat.uniforms.uSunDir.value.copy(sunDir);
+    if (planet.oceanMat) planet.oceanMat.uniforms.uSunDir.value.copy(sunDir);
+  }
+};
+
 // ---------------- Deep Space Starfield ----------------
-const starCount = 3200;
+const starCount = 3600;
 const starGeo = new THREE.BufferGeometry();
 const starPos = new Float32Array(starCount * 3);
 const starCol = new Float32Array(starCount * 3);
 for (let i = 0; i < starCount; i++) {
-  const r = 2400 + Math.random() * 3200;
+  const r = 4200 + Math.random() * 5500;
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
   starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
@@ -129,7 +152,7 @@ for (let i = 0; i < starCount; i++) {
 starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
 starGeo.setAttribute("color", new THREE.BufferAttribute(starCol, 3));
 const starMat = new THREE.PointsMaterial({
-  size: 2.2,
+  size: 2.5,
   vertexColors: true,
   transparent: true,
   opacity: 0.92
@@ -153,28 +176,33 @@ const loadPlanetSystem = (sysIdx) => {
   }
   currentSystemIndex = sysIdx % SYSTEMS.length;
   planet = buildPlanet(PLANET_RADIUS, currentSystemIndex);
-  planet.position.set(0, -PLANET_RADIUS, 0); // North Pole Landing Pad is at world (0, 0, 0)
-  spawnAnimals(planet, 34);
+  planet.position.set(0, -PLANET_RADIUS, 0); // North Pole Starport Plateau is at world (0, +2.2, 0)
+  spawnAnimals(planet, 42);
   scene.add(planet);
 
   const sys = SYSTEMS[currentSystemIndex];
   UI.setSystem(sys.name);
   UI.setBiome(sys.biome);
+  UI.setGravity(sys.gravity || 1.0);
+  UI.setAtmos(sys.atmosPressure || "101 kPa O₂/N₂");
 };
 
 loadPlanetSystem(0);
 
-// ---------------- Ship, Interior Walk & Planet Foot State ----------------
+// ---------------- Physics States (Ship, Interior Walk & Planet/Water Walk) ----------------
 const shipState = {
-  pos: new THREE.Vector3(0, 58, 210),
+  pos: new THREE.Vector3(0, 68, 220),
   vel: new THREE.Vector3(),
   speed: 0,
-  maxSpeed: 1.15,
+  maxSpeed: 1.35,
   thrust: 0,
+  gForce: 1.0,
   landed: false,
+  floatingOnWater: false,
   yaw: 0,
-  pitch: 0, // Level horizon — zero downward drift!
+  pitch: 0,
   roll: 0,
+  angularVel: new THREE.Vector3(),
   forward: new THREE.Vector3(0, 0, -1),
   up: new THREE.Vector3(0, 1, 0),
   right: new THREE.Vector3(1, 0, 0)
@@ -183,22 +211,39 @@ const shipState = {
 // Local coordinates inside the 3-Bay Walkable Ship Interior (z = -0.5 to +8.8, x = -1.55 to +1.55)
 const shipWalkState = {
   pos: new THREE.Vector3(0, 0, 1.5),
-  yaw: Math.PI, // Initially facing aft toward the Holo-Table & Hyperdrive Reactor Core
+  vel: new THREE.Vector3(),
+  yaw: Math.PI, // Facing aft toward Holo-Table, Captain's Bed & Reactor Core
   pitch: 0,
   walkTime: 0,
-  lastStepPhase: 0
+  lastStepPhase: 0,
+  grounded: true
 };
 
-// World coordinates on the Planet Surface around the North Pole Landing Pad
+// World coordinates on the Planet Surface / Ocean around the Starport & Beach
 const footState = {
-  pos: new THREE.Vector3(0, 1.8, 10.5),
-  yaw: 0, // Facing the parked starship & roaming alien animals
+  pos: new THREE.Vector3(0, 4.0, 10.5),
+  vel: new THREE.Vector3(),
+  yaw: 0,
   pitch: 0,
   walkTime: 0,
-  lastStepPhase: 0
+  lastStepPhase: 0,
+  grounded: true,
+  inWater: false,
+  submergedHead: false,
+  waterSplashCooldown: 0
 };
 
+let crewStamina = 100;
 const cockpitLook = { yaw: 0, pitch: 0 };
+
+// Sleep Sequence State (Captain's Quarters Bed)
+const sleepState = {
+  timer: 0,
+  duration: 3.6,
+  startPos: new THREE.Vector3(),
+  startYaw: 0,
+  startPitch: 0
+};
 
 // Warp & Cutscene State
 let warpCharge = 0;
@@ -207,6 +252,7 @@ let warpReady = false;
 let warpAutoTimer = 0;
 let warpSfx = null;
 let activeCutscene = null;
+let spaceHoldTime = 0;
 
 // Camera Mode
 let camMode = CAM.COCKPIT;
@@ -214,8 +260,6 @@ let cinematicT = 0;
 let menuOrbitT = 0;
 
 // ---------------- Drift-Free Mouse & Keyboard Input ----------------
-// Avoids Chromium iframe requestPointerLock() downward movementY warp bug by
-// using clean clientX/clientY drag deltas when holding Left or Right mouse button.
 const keys = {};
 const mouse = { dx: 0, dy: 0 };
 let isDraggingMouse = false;
@@ -229,7 +273,7 @@ const qLook = new THREE.Quaternion();
 const qFinal = new THREE.Quaternion();
 
 // ---------------- Save / Load ----------------
-const SAVE_KEY = "stellarvoyage_save_v3";
+const SAVE_KEY = "stellarvoyage_save_v4";
 
 const loadGame = () => {
   try {
@@ -249,6 +293,8 @@ const saveGame = () => {
     landed: shipState.landed,
     camMode,
     systemIndex: currentSystemIndex,
+    solarHours,
+    stamina: crewStamina,
     warps: (prev.warps || 0) + 1
   };
   try {
@@ -294,7 +340,6 @@ window.addEventListener("mousemove", (e) => {
   if (lastMouseX !== null && lastMouseY !== null) {
     const rawDx = e.clientX - lastMouseX;
     const rawDy = e.clientY - lastMouseY;
-    // Clamp per-event delta to prevent any browser jump spikes
     mouse.dx += Math.max(-42, Math.min(42, rawDx));
     mouse.dy += Math.max(-42, Math.min(42, rawDy));
   }
@@ -312,9 +357,9 @@ const syncVisibility = () => {
     return;
   }
   if (state === STATE.WARP || state === STATE.CUTSCENE) {
-    return; // Cutscene director controls ship/cockpit visibility per shot
+    return;
   }
-  if (camMode === CAM.COCKPIT || camMode === CAM.SHIP_INTERIOR) {
+  if (camMode === CAM.COCKPIT || camMode === CAM.SHIP_INTERIOR || state === STATE.SLEEPING) {
     cockpit.visible = true;
     ship.visible = false;
   } else {
@@ -330,6 +375,9 @@ const setCam = (mode) => {
   mouse.dx = 0;
   mouse.dy = 0;
   UI.setInteractPrompt(null);
+  if (mode !== CAM.FOOT) {
+    UI.setUnderwater(false);
+  }
   syncVisibility();
   UI.setCam(mode);
   Audio.sfx.switch();
@@ -337,17 +385,17 @@ const setCam = (mode) => {
   if (mode === CAM.SHIP_INTERIOR) {
     UI.setFlightState(shipState.landed ? "SHIP DECK (LANDED)" : "SHIP DECK (IN ORBIT)");
     UI.setHelp(
-      "<b>WASD</b>: Walk Inside Ship &bull; <b>Drag Mouse / Q&amp;E</b>: Look &bull; <b>E</b>: Use Station (Seat / Holo-Table / Airlock) &bull; <b>I</b>: Sit"
+      "<b>WASD</b>: Walk Inside Ship &bull; <b>E</b>: Use Station (Seat / <b>Captain's Bed</b> / Holo-Table / Airlock) &bull; <b>B</b>: Sleep in Bed"
     );
   } else if (mode === CAM.FOOT) {
-    UI.setFlightState("PLANET SURFACE");
+    UI.setFlightState("PLANET & OCEAN");
     UI.setHelp(
-      "<b>WASD</b>: Walk Among Alien Animals &bull; <b>Drag Mouse / Q&amp;E</b>: Look &bull; <b>E</b> (near ramp): Board Ship &bull; <b>L</b>: Liftoff"
+      "<b>WASD / Shift</b>: Walk / Sprint / Swim &bull; <b>SPACE</b>: Jump / Swim Up &bull; Walk forward (+Z) down the Pier into the <b>Ocean</b>!"
     );
   } else {
     UI.setFlightState(shipState.landed ? "LANDED ON PAD" : "IN ORBIT");
     UI.setHelp(
-      "<b>WASD / Arrows / Drag Mouse</b>: Fly &amp; Steer &bull; <b>I</b>: Walk in Ship &bull; <b>L</b>: Land/Liftoff &bull; <b>H</b>: Ship Hull &bull; <b>SPACE</b>: Warp"
+      "<b>WASD / Shift</b>: Fly &amp; Boost &bull; <b>I</b>: Walk Inside Ship &amp; Bed &bull; <b>B</b>: Sleep &bull; <b>L</b>: Land/Liftoff &bull; <b>TAB</b>: Planet &amp; Ocean"
     );
   }
 };
@@ -358,10 +406,31 @@ const toggleShipInteriorWalk = () => {
     setCam(CAM.COCKPIT);
   } else {
     shipWalkState.pos.set(0, 0, 1.35);
+    shipWalkState.vel.set(0, 0, 0);
     shipWalkState.yaw = Math.PI;
     shipWalkState.pitch = 0;
     setCam(CAM.SHIP_INTERIOR);
   }
+};
+
+// ---------------- CAPTAIN'S QUARTERS BED SLEEP SEQUENCE ----------------
+const startSleepInBed = () => {
+  if (state !== STATE.PLAYING) return;
+
+  // Ensure we are inside the walkable ship interior
+  if (camMode !== CAM.SHIP_INTERIOR) {
+    setCam(CAM.SHIP_INTERIOR);
+  }
+
+  state = STATE.SLEEPING;
+  sleepState.timer = 0;
+  sleepState.startPos.copy(shipWalkState.pos);
+  sleepState.startYaw = shipWalkState.yaw;
+  sleepState.startPitch = shipWalkState.pitch;
+
+  UI.setInteractPrompt(null);
+  UI.setFlightState("SLEEPING IN QUARTERS");
+  Audio.sfx.sleep();
 };
 
 const cycleCam = () => {
@@ -393,7 +462,8 @@ const startLandingCutscene = (goOutOnFoot = false) => {
     () => {
       activeCutscene = null;
       shipState.landed = true;
-      shipState.pos.set(0, 1.45, 0);
+      shipState.pos.set(0, 3.65, 0); // Coastal Starport Plateau (+2.2m + 1.45m gear)
+      shipState.vel.set(0, 0, 0);
       shipState.yaw = 0;
       shipState.pitch = 0;
       shipState.roll = 0;
@@ -407,8 +477,9 @@ const startLandingCutscene = (goOutOnFoot = false) => {
       UI.hideWarp();
 
       if (goOutOnFoot) {
-        footState.pos.set(0, 1.8, 9.5);
-        footState.yaw = 0;
+        footState.pos.set(0, 4.0, 9.5);
+        footState.vel.set(0, 0, 0);
+        footState.yaw = Math.PI; // Facing the coastal pier & sparkling ocean bay!
         footState.pitch = 0;
         setCam(CAM.FOOT);
       } else {
@@ -426,6 +497,7 @@ const startTakeoffCutscene = () => {
 
   state = STATE.CUTSCENE;
   UI.setInteractPrompt(null);
+  UI.setUnderwater(false);
   const sys = SYSTEMS[currentSystemIndex];
   UI.showWarp(`LAUNCHING FROM ${sys.name}`, "SEALING AFT AIRLOCK // VTOL LIFTOFF");
 
@@ -438,7 +510,8 @@ const startTakeoffCutscene = () => {
     () => {
       activeCutscene = null;
       shipState.landed = false;
-      shipState.pos.set(0, 58, 195);
+      shipState.pos.set(0, 68, 210);
+      shipState.vel.set(0, 0, -12);
       shipState.yaw = 0;
       shipState.pitch = 0;
       shipState.roll = 0;
@@ -471,14 +544,17 @@ const togglePlanetSurfaceWalk = () => {
   if (!shipState.landed) {
     startLandingCutscene(true);
   } else if (camMode === CAM.FOOT) {
+    UI.setUnderwater(false);
     shipWalkState.pos.set(0, 0, 7.8);
+    shipWalkState.vel.set(0, 0, 0);
     shipWalkState.yaw = 0;
     shipWalkState.pitch = 0;
     Audio.sfx.hydraulics();
     setCam(CAM.SHIP_INTERIOR);
   } else {
-    footState.pos.set(0, 1.8, 9.5);
-    footState.yaw = 0;
+    footState.pos.set(0, 4.0, 9.5);
+    footState.vel.set(0, 0, 0);
+    footState.yaw = Math.PI; // Facing the coastal pier & ocean bay (+Z)
     footState.pitch = 0;
     Audio.sfx.hydraulics();
     setCam(CAM.FOOT);
@@ -487,7 +563,7 @@ const togglePlanetSurfaceWalk = () => {
 
 // ---------------- Quantum Warp Cutscene ----------------
 const engageWarp = () => {
-  if (state === STATE.WARP || state === STATE.CUTSCENE) return;
+  if (state === STATE.WARP || state === STATE.CUTSCENE || state === STATE.SLEEPING) return;
   if (warpSfx) {
     try {
       warpSfx.stop();
@@ -499,6 +575,7 @@ const engageWarp = () => {
     activeCutscene = null;
   }
 
+  UI.setUnderwater(false);
   shipState.landed = false;
   ship.setGearProgress(0);
   ship.setRampProgress(0);
@@ -529,7 +606,7 @@ const engageWarp = () => {
       loadPlanetSystem(nextSysIndex);
 
       shipState.landed = false;
-      shipState.pos.set(0, 58, 210);
+      shipState.pos.set(0, 68, 220);
       shipState.vel.set(0, 0, 0);
       shipState.speed = 0;
       shipState.thrust = 0;
@@ -571,7 +648,13 @@ const cycleOnlineShipHull = () => {
 };
 
 const chargeWarp = (dt) => {
+  // On foot / swimming, tapping Space jumps/swims; holding Space > 0.45s charges warp
   if (keys["Space"]) {
+    spaceHoldTime += dt;
+    if (camMode === CAM.FOOT && spaceHoldTime < 0.45) {
+      return;
+    }
+
     const wasZero = warpCharge === 0;
     warpCharge = Math.min(100, warpCharge + warpChargeRate * dt);
     UI.setWarpMeter(warpCharge);
@@ -594,6 +677,7 @@ const chargeWarp = (dt) => {
       }
     }
   } else {
+    spaceHoldTime = 0;
     warpAutoTimer = 0;
     if (warpCharge > 0 && !warpReady) {
       warpCharge = Math.max(0, warpCharge - 25 * dt);
@@ -611,7 +695,7 @@ const chargeWarp = (dt) => {
   }
 };
 
-// ---------------- Contextual Interactions (Ship Interior & Ramp) ----------------
+// ---------------- Contextual Interactions (Seat, Bed, Holo-Table, Airlock, Ramp) ----------------
 const interact = () => {
   if (warpReady || warpCharge >= 95) {
     engageWarp();
@@ -619,18 +703,27 @@ const interact = () => {
   }
 
   if (camMode === CAM.SHIP_INTERIOR) {
+    const x = shipWalkState.pos.x;
     const z = shipWalkState.pos.z;
+
     if (z < 1.1) {
       setCam(CAM.COCKPIT);
       return;
     }
-    if (z >= 1.6 && z <= 4.8) {
+    // Captain's Quarters Bed on Port Side (z = 3.5 to 5.8, x > 0.1)
+    if (z >= 3.5 && z <= 5.85 && x > 0.05) {
+      startSleepInBed();
+      return;
+    }
+    // Center Holographic Astrogation Table (z = 1.6 to 4.6)
+    if (z >= 1.6 && z <= 4.6) {
       warpCharge = 100;
       warpReady = true;
       engageWarp();
       return;
     }
-    if (z > 6.4) {
+    // Aft Airlock
+    if (z > 6.2) {
       togglePlanetSurfaceWalk();
       return;
     }
@@ -638,8 +731,10 @@ const interact = () => {
 
   if (camMode === CAM.FOOT) {
     const distToRamp = Math.hypot(footState.pos.x, footState.pos.z - 3.5);
-    if (distToRamp < 5.0) {
+    if (distToRamp < 6.0) {
+      UI.setUnderwater(false);
       shipWalkState.pos.set(0, 0, 7.8);
+      shipWalkState.vel.set(0, 0, 0);
       shipWalkState.yaw = 0;
       shipWalkState.pitch = 0;
       Audio.sfx.hydraulics();
@@ -659,6 +754,7 @@ const interact = () => {
 
 // ---------------- Input Listeners ----------------
 window.addEventListener("keydown", (e) => {
+  const wasPressed = !!keys[e.code];
   keys[e.code] = true;
 
   if (e.code === "Escape") {
@@ -685,6 +781,7 @@ window.addEventListener("keydown", (e) => {
 
   if (state === STATE.PLAYING) {
     if (e.code === "KeyI") toggleShipInteriorWalk();
+    if (e.code === "KeyB") startSleepInBed();
     if (e.code === "KeyL") toggleLandOrTakeoff();
     if (e.code === "KeyC") cycleCam();
     if (e.code === "KeyH") cycleOnlineShipHull();
@@ -694,6 +791,24 @@ window.addEventListener("keydown", (e) => {
     }
     if (e.code === "KeyE" || e.code === "Enter") {
       interact();
+    }
+    // Real Physics Jump / Swim-Up Impulse when pressing Space on foot or inside ship!
+    if (e.code === "Space" && !wasPressed) {
+      if (camMode === CAM.FOOT) {
+        if (footState.inWater) {
+          footState.vel.y = 5.4;
+          Audio.sfx.splash(0.6);
+          spawnWaterRipple(planet, footState.pos.x, footState.pos.z, 3.8);
+        } else if (footState.grounded) {
+          footState.vel.y = 6.2;
+          footState.grounded = false;
+          Audio.sfx.footstep(false);
+        }
+      } else if (camMode === CAM.SHIP_INTERIOR && shipWalkState.grounded) {
+        shipWalkState.vel.y = 3.8;
+        shipWalkState.grounded = false;
+        Audio.sfx.footstep(true);
+      }
     }
   }
 });
@@ -728,28 +843,44 @@ const updateShipTransform = () => {
   cockpit.updateMatrixWorld();
 };
 
-// ---------------- Dynamic Atmospheric Sky & Fog Transition ----------------
-const updateAtmosphericEnvironment = (viewerWorldPos) => {
+// ---------------- Dynamic Atmospheric Sky, Fog & Underwater Transition ----------------
+const updateAtmosphericEnvironment = (viewerWorldPos, isUnderwater = false) => {
   const sys = SYSTEMS[currentSystemIndex];
   const distCenter = Math.hypot(
     viewerWorldPos.x,
     viewerWorldPos.y + PLANET_RADIUS,
     viewerWorldPos.z
   );
-  const altitude = Math.max(0, distCenter - PLANET_RADIUS);
+  const altitude = Math.max(-20, distCenter - PLANET_RADIUS);
 
-  // Within 110m of the planet surface, transition from deep space into atmospheric sky scatter!
-  const atmosDepth = THREE.MathUtils.clamp(1.0 - altitude / 110.0, 0.0, 1.0);
+  if (isUnderwater) {
+    underwaterBgColor.setHex(sys.waterDeepHex || 0x0369a1).multiplyScalar(0.55);
+    blendedSkyColor.copy(underwaterBgColor);
+    scene.fog.color.copy(underwaterBgColor);
+    scene.fog.density = 0.022;
+    hemi.color.setHex(sys.waterShallowHex || 0x22d3ee);
+    hemi.intensity = 1.1;
+    starMat.opacity = 0.0;
+    return altitude;
+  }
+
+  const atmosDepth = THREE.MathUtils.clamp(1.0 - altitude / 140.0, 0.0, 1.0);
   const smoothAtmos = atmosDepth * atmosDepth * (3 - 2 * atmosDepth);
 
-  atmosBgColor.setHex(sys.atmosHex || 0x38bdf8).multiplyScalar(0.28);
+  // Modulate atmospheric brightness by solar time (day vs twilight/night)
+  const sunElev = Math.sin(((solarHours - 6.0) / 24.0) * Math.PI * 2.0);
+  const daylight = THREE.MathUtils.clamp(0.35 + sunElev * 0.65, 0.14, 1.0);
+
+  atmosBgColor.setHex(sys.atmosHex || 0x38bdf8).multiplyScalar(0.32 * daylight);
   blendedSkyColor.copy(spaceBgColor).lerp(atmosBgColor, smoothAtmos);
   scene.fog.color.copy(blendedSkyColor);
-  scene.fog.density = THREE.MathUtils.lerp(0.00009, 0.0018, smoothAtmos);
+  scene.fog.density = THREE.MathUtils.lerp(0.00007, 0.0014, smoothAtmos);
 
   hemi.color.setHex(sys.horizonHex || sys.atmosHex || 0x7dd3fc);
-  hemi.intensity = THREE.MathUtils.lerp(0.85, 1.35, smoothAtmos);
-  starMat.opacity = THREE.MathUtils.lerp(0.95, 0.25, smoothAtmos);
+  hemi.intensity = THREE.MathUtils.lerp(0.85, 1.4 * daylight, smoothAtmos);
+  starMat.opacity = THREE.MathUtils.lerp(0.95, 0.22, smoothAtmos * daylight);
+
+  return altitude;
 };
 
 // ---------------- Menu & HUD Button Wiring ----------------
@@ -763,6 +894,8 @@ const startNewOrSavedGame = (useSaved = false) => {
     if (sv.pos && sv.pos.length === 3) {
       shipState.pos.fromArray(sv.pos);
     }
+    if (typeof sv.solarHours === "number") solarHours = sv.solarHours;
+    if (typeof sv.stamina === "number") crewStamina = sv.stamina;
     shipState.yaw = sv.yaw || 0;
     shipState.pitch = sv.pitch || 0;
     shipState.landed = !!sv.landed;
@@ -776,6 +909,8 @@ const startNewOrSavedGame = (useSaved = false) => {
   } else {
     loadPlanetSystem(0);
     shipState.landed = false;
+    crewStamina = 100;
+    UI.setStamina(100);
     UI.hideMenu();
     state = STATE.CUTSCENE;
     UI.showWarp("STELLAR VOYAGE // AEGIS VANGUARD", "INITIALIZING QUANTUM CORVETTE SYSTEMS");
@@ -788,7 +923,8 @@ const startNewOrSavedGame = (useSaved = false) => {
       cockpit,
       () => {
         activeCutscene = null;
-        shipState.pos.set(0, 58, 210);
+        shipState.pos.set(0, 68, 220);
+        shipState.vel.set(0, 0, 0);
         shipState.yaw = 0;
         shipState.pitch = 0;
         shipState.roll = 0;
@@ -821,7 +957,6 @@ UI.on("back", () => {
   UI.showMenu();
 });
 
-// HUD Quick-Action Buttons
 UI.on("hudWarp", () => {
   if (state === STATE.PLAYING) {
     warpCharge = 100;
@@ -831,6 +966,7 @@ UI.on("hudWarp", () => {
 });
 UI.on("hudLand", () => toggleLandOrTakeoff());
 UI.on("hudShipWalk", () => toggleShipInteriorWalk());
+UI.on("hudSleep", () => startSleepInBed());
 UI.on("hudFoot", () => togglePlanetSurfaceWalk());
 UI.on("hudHull", () => cycleOnlineShipHull());
 UI.on("hudCam", () => {
@@ -850,41 +986,44 @@ let last = performance.now();
 const update = (now) => {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
+  const timeSec = now * 0.001;
 
-  // Animate planetary cloud deck, fauna & ship interior holograms/reactor core
-  updateAnimals(planet, dt);
+  updateSolarCycle(dt);
+  updateAnimals(planet, dt, timeSec);
+
   if (cockpit.updateInterior) {
     cockpit.updateInterior(dt, warpCharge);
   }
-  if (state === STATE.PLAYING) {
+
+  if (state === STATE.PLAYING || state === STATE.SLEEPING) {
     if (shipState.landed) {
       ship.setSteamIntensity(0.42 + Math.sin(now * 0.0022) * 0.12);
     } else {
       const distPad = Math.hypot(shipState.pos.x, shipState.pos.z);
-      if (shipState.pos.y < 16 && distPad < 28) {
-        const altFactor = Math.max(0, 1 - shipState.pos.y / 16);
-        const padFactor = Math.max(0, 1 - distPad / 28);
+      if (shipState.pos.y < 18 && distPad < 30) {
+        const altFactor = Math.max(0, 1 - shipState.pos.y / 18);
+        const padFactor = Math.max(0, 1 - distPad / 30);
         ship.setSteamIntensity(altFactor * padFactor * 0.85);
       } else {
         ship.setSteamIntensity(0);
       }
     }
     if (ship.updateSteam) {
-      ship.updateSteam(dt, now * 0.001);
+      ship.updateSteam(dt, timeSec);
     }
   }
 
   // ---------- MENU / CREDITS ATTRACT SCENE ----------
   if (state === STATE.MENU || state === STATE.CREDITS) {
     menuOrbitT += dt * 0.25;
-    shipState.pos.set(0, 56, 205);
+    shipState.pos.set(0, 68, 220);
     shipState.yaw = Math.sin(menuOrbitT * 0.5) * 0.14;
     shipState.pitch = 0;
     shipState.roll = Math.cos(menuOrbitT * 0.5) * 0.07;
     if (ship.__quantumRing) ship.__quantumRing.rotation.z += dt * 1.5;
     updateShipTransform();
     syncVisibility();
-    updateAtmosphericEnvironment(shipState.pos);
+    updateAtmosphericEnvironment(shipState.pos, false);
 
     camera.position.set(
       shipState.pos.x + Math.sin(menuOrbitT) * 14.0,
@@ -897,12 +1036,84 @@ const update = (now) => {
     return;
   }
 
+  // ---------- CAPTAIN'S BED SLEEP SEQUENCE ----------
+  if (state === STATE.SLEEPING) {
+    sleepState.timer += dt;
+    const t = sleepState.timer;
+    const p = Math.min(1.0, t / sleepState.duration);
+
+    // Advance planetary solar clock (+8 hours over the sleep duration) & restore stamina
+    solarHours = (solarHours + (8.0 / sleepState.duration) * dt) % 24;
+    crewStamina = Math.min(100, crewStamina + 45 * dt);
+    UI.setStamina(crewStamina);
+
+    // Smoothly move camera onto the Captain's Bed pillow at local (1.18, -0.35, 4.15)
+    const bedPillowPos = new THREE.Vector3(1.18, -0.32, 4.15);
+    const lieFactor =
+      t < 0.9
+        ? t / 0.9
+        : t > sleepState.duration - 0.8
+        ? Math.max(0, (sleepState.duration - t) / 0.8)
+        : 1.0;
+    const smoothLie = lieFactor * lieFactor * (3 - 2 * lieFactor);
+
+    const curLocalPos = new THREE.Vector3().lerpVectors(
+      sleepState.startPos,
+      bedPillowPos,
+      smoothLie
+    );
+    updateShipTransform();
+    const worldEye = curLocalPos.clone().applyMatrix4(cockpit.matrixWorld);
+    camera.position.copy(worldEye);
+
+    qShip.copy(cockpit.quaternion);
+    lookEuler.set(
+      THREE.MathUtils.lerp(sleepState.startPitch, 0.58, smoothLie),
+      THREE.MathUtils.lerp(sleepState.startYaw, Math.PI * 0.5, smoothLie),
+      THREE.MathUtils.lerp(0, 0.12, smoothLie),
+      "YXZ"
+    );
+    qLook.setFromEuler(lookEuler);
+    qFinal.multiplyQuaternions(qShip, qLook);
+    camera.quaternion.copy(qFinal);
+
+    if (t > 0.65 && t < sleepState.duration - 0.45) {
+      const barPct = ((t - 0.65) / (sleepState.duration - 1.1)) * 100;
+      UI.showSleep(
+        "CAPTAIN'S QUARTERS // CIRCADIAN SLEEP CYCLE",
+        `RESTORING STAMINA (${Math.round(crewStamina)}%) & ADVANCING SOLAR TIME...`,
+        barPct
+      );
+    } else {
+      UI.hideSleep();
+    }
+
+    if (t >= sleepState.duration) {
+      UI.hideSleep();
+      crewStamina = 100;
+      UI.setStamina(100);
+      shipWalkState.pos.set(0.32, 0.05, 4.65);
+      shipWalkState.vel.set(0, 0, 0);
+      shipWalkState.yaw = -Math.PI * 0.5; // Facing the Captain's Bed
+      shipWalkState.pitch = 0;
+      state = STATE.PLAYING;
+      UI.setFlightState(shipState.landed ? "SHIP DECK (LANDED)" : "SHIP DECK (IN ORBIT)");
+      UI.setWarpStatus("SLEEP COMPLETE // STAMINA 100% & SOLAR TIME +8H");
+      Audio.sfx.arrive();
+      saveGame();
+    }
+
+    composer.render();
+    requestAnimationFrame(update);
+    return;
+  }
+
   // ---------- ACTIVE CUTSCENE (WARP / LANDING / TAKEOFF / LAUNCH) ----------
   if (state === STATE.WARP || state === STATE.CUTSCENE) {
     if (activeCutscene) {
       activeCutscene.update(dt);
     }
-    updateAtmosphericEnvironment(camera.position);
+    updateAtmosphericEnvironment(camera.position, false);
     composer.render();
     requestAnimationFrame(update);
     return;
@@ -912,6 +1123,9 @@ const update = (now) => {
   chargeWarp(dt);
 
   const lookSens = 0.0032;
+  const sys = SYSTEMS[currentSystemIndex];
+  const planetGravity = (sys.gravity || 1.0) * 9.8;
+  const isSprinting = !!(keys["ShiftLeft"] || keys["ShiftRight"]);
 
   // =========================================================================
   // MODE A: WALKING AROUND INSIDE THE STARSHIP (CAM.SHIP_INTERIOR)
@@ -920,20 +1134,33 @@ const update = (now) => {
     Audio.updateEngineHum(0.15, true);
 
     shipWalkState.yaw -= mouse.dx * lookSens;
-    shipWalkState.pitch = Math.max(-1.1, Math.min(1.1, shipWalkState.pitch - mouse.dy * lookSens));
+    shipWalkState.pitch = Math.max(
+      -1.1,
+      Math.min(1.1, shipWalkState.pitch - mouse.dy * lookSens)
+    );
     mouse.dx = 0;
     mouse.dy = 0;
 
     const keyTurn =
       (keys["KeyQ"] || keys["ArrowLeft"] ? 1 : 0) -
       (keys["KeyE"] || keys["ArrowRight"] ? 1 : 0);
-    const keyPitch =
-      (keys["KeyR"] ? 1 : 0) - (keys["KeyF"] ? 1 : 0);
+    const keyPitch = (keys["KeyR"] ? 1 : 0) - (keys["KeyF"] ? 1 : 0);
     shipWalkState.yaw += keyTurn * 1.8 * dt;
-    shipWalkState.pitch = Math.max(-1.1, Math.min(1.1, shipWalkState.pitch + keyPitch * 1.2 * dt));
+    shipWalkState.pitch = Math.max(
+      -1.1,
+      Math.min(1.1, shipWalkState.pitch + keyPitch * 1.2 * dt)
+    );
 
-    const fwd = new THREE.Vector3(-Math.sin(shipWalkState.yaw), 0, -Math.cos(shipWalkState.yaw));
-    const rgt = new THREE.Vector3(Math.cos(shipWalkState.yaw), 0, -Math.sin(shipWalkState.yaw));
+    const fwd = new THREE.Vector3(
+      -Math.sin(shipWalkState.yaw),
+      0,
+      -Math.cos(shipWalkState.yaw)
+    );
+    const rgt = new THREE.Vector3(
+      Math.cos(shipWalkState.yaw),
+      0,
+      -Math.sin(shipWalkState.yaw)
+    );
 
     const move = new THREE.Vector3();
     if (keys["KeyW"] || keys["ArrowUp"]) move.add(fwd);
@@ -941,22 +1168,57 @@ const update = (now) => {
     if (keys["KeyD"]) move.add(rgt);
     if (keys["KeyA"]) move.sub(rgt);
 
+    const targetWalkSpeed = isSprinting && crewStamina > 5 ? 6.2 : 4.2;
     if (move.lengthSq() > 0) {
-      move.normalize().multiplyScalar(4.2 * dt);
-      shipWalkState.pos.add(move);
-      shipWalkState.walkTime += dt * 10;
+      move.normalize().multiplyScalar(targetWalkSpeed);
+      shipWalkState.vel.x = THREE.MathUtils.lerp(shipWalkState.vel.x, move.x, 12 * dt);
+      shipWalkState.vel.z = THREE.MathUtils.lerp(shipWalkState.vel.z, move.z, 12 * dt);
+      shipWalkState.walkTime += dt * (isSprinting ? 13 : 10);
+
+      if (isSprinting) {
+        crewStamina = Math.max(0, crewStamina - 8 * dt);
+      } else {
+        crewStamina = Math.min(100, crewStamina + 5 * dt);
+      }
 
       const stepPhase = Math.floor(shipWalkState.walkTime / Math.PI);
-      if (stepPhase !== shipWalkState.lastStepPhase) {
+      if (stepPhase !== shipWalkState.lastStepPhase && shipWalkState.grounded) {
         shipWalkState.lastStepPhase = stepPhase;
         Audio.sfx.footstep(true);
       }
+    } else {
+      shipWalkState.vel.x *= Math.pow(0.001, dt);
+      shipWalkState.vel.z *= Math.pow(0.001, dt);
+      crewStamina = Math.min(100, crewStamina + 7 * dt);
     }
 
-    shipWalkState.pos.x = Math.max(-1.48, Math.min(1.48, shipWalkState.pos.x));
+    // Artificial 1.0G ship deck vertical physics
+    shipWalkState.vel.y -= 9.8 * dt;
+    shipWalkState.pos.addScaledVector(shipWalkState.vel, dt);
+    if (shipWalkState.pos.y <= 0.05) {
+      shipWalkState.pos.y = 0.05;
+      shipWalkState.vel.y = 0;
+      shipWalkState.grounded = true;
+    }
+
+    // Constrain to the 3-Bay Starship Deck Bounds
+    shipWalkState.pos.x = Math.max(-1.45, Math.min(1.45, shipWalkState.pos.x));
     shipWalkState.pos.z = Math.max(-0.45, Math.min(8.85, shipWalkState.pos.z));
 
-    for (const [obsZ, rad] of [[3.2, 0.78], [7.2, 0.88]]) {
+    // Avoid walking through Captain's Bed frame (x > 0.72, z = 3.65..5.65)
+    if (
+      shipWalkState.pos.z > 3.58 &&
+      shipWalkState.pos.z < 5.72 &&
+      shipWalkState.pos.x > 0.68
+    ) {
+      shipWalkState.pos.x = 0.68;
+    }
+
+    // Avoid walking straight through the central Holo-Table (z=3.2) or Reactor Core (z=7.2)
+    for (const [obsZ, rad] of [
+      [3.2, 0.78],
+      [7.2, 0.88]
+    ]) {
       const dx = shipWalkState.pos.x;
       const dz = shipWalkState.pos.z - obsZ;
       const d = Math.hypot(dx, dz);
@@ -966,18 +1228,26 @@ const update = (now) => {
       }
     }
 
-    const headBob = move.lengthSq() > 0 ? Math.sin(shipWalkState.walkTime) * 0.045 : 0;
-    shipWalkState.pos.y = 0.05 + headBob;
+    const headBob =
+      move.lengthSq() > 0 && shipWalkState.grounded
+        ? Math.sin(shipWalkState.walkTime) * 0.042
+        : 0;
 
+    // Contextual Station Prompts (Pilot Seat / Captain's Bed / Holo-Table / Airlock)
+    const x = shipWalkState.pos.x;
     const z = shipWalkState.pos.z;
     if (z < 1.1) {
       UI.setInteractPrompt("[E] SIT IN PILOT SEAT (HELM CONTROL)");
-    } else if (z >= 1.6 && z <= 4.8) {
+    } else if (z >= 3.5 && z <= 5.85 && x > 0.05) {
+      UI.setInteractPrompt(
+        "[E] LIE DOWN & SLEEP IN CAPTAIN'S BED (RESTORE STAMINA & +8H SOLAR)"
+      );
+    } else if (z >= 1.6 && z <= 4.6) {
       UI.setInteractPrompt("[E] ASTROGATION HOLO-TABLE — ENGAGE QUANTUM WARP");
-    } else if (z > 6.4) {
+    } else if (z > 6.2) {
       UI.setInteractPrompt(
         shipState.landed
-          ? "[E] OPEN AFT AIRLOCK — STEP OUT ONTO PLANET SURFACE"
+          ? "[E] OPEN AFT AIRLOCK — STEP OUT ONTO PLANET & OCEAN BEACH"
           : "[E] LAND ON PLANET & STEP OUT AFT AIRLOCK"
       );
     } else {
@@ -985,9 +1255,11 @@ const update = (now) => {
     }
 
     updateShipTransform();
-    const worldEye = shipWalkState.pos.clone().applyMatrix4(cockpit.matrixWorld);
+    const eyeLocal = shipWalkState.pos.clone();
+    eyeLocal.y += headBob;
+    const worldEye = eyeLocal.applyMatrix4(cockpit.matrixWorld);
     camera.position.copy(worldEye);
-    updateAtmosphericEnvironment(worldEye);
+    const alt = updateAtmosphericEnvironment(worldEye, false);
 
     qShip.copy(cockpit.quaternion);
     lookEuler.set(shipWalkState.pitch, shipWalkState.yaw, 0, "YXZ");
@@ -995,26 +1267,34 @@ const update = (now) => {
     qFinal.multiplyQuaternions(qShip, qLook);
     camera.quaternion.copy(qFinal);
 
-    UI.setSpeed(move.lengthSq() > 0 ? 4 : 0);
+    UI.setStamina(crewStamina);
+    UI.setHeading(shipState.yaw + shipWalkState.yaw);
+    UI.setAltitude(alt, 1.0, false);
+    UI.setSpeed(Math.hypot(shipWalkState.vel.x, shipWalkState.vel.z), "m/s");
   }
   // =========================================================================
-  // MODE B: WALKING ON THE PLANET SURFACE (CAM.FOOT)
+  // MODE B: PLANET SURFACE WALKING & ARCHIMEDES OCEAN SWIMMING PHYSICS (CAM.FOOT)
   // =========================================================================
   else if (camMode === CAM.FOOT) {
     Audio.updateEngineHum(0, false);
 
     footState.yaw -= mouse.dx * lookSens;
-    footState.pitch = Math.max(-1.1, Math.min(1.1, footState.pitch - mouse.dy * lookSens));
+    footState.pitch = Math.max(
+      -1.18,
+      Math.min(1.18, footState.pitch - mouse.dy * lookSens)
+    );
     mouse.dx = 0;
     mouse.dy = 0;
 
     const keyTurn =
       (keys["KeyQ"] || keys["ArrowLeft"] ? 1 : 0) -
       (keys["KeyE"] || keys["ArrowRight"] ? 1 : 0);
-    const keyPitch =
-      (keys["KeyR"] ? 1 : 0) - (keys["KeyF"] ? 1 : 0);
+    const keyPitch = (keys["KeyR"] ? 1 : 0) - (keys["KeyF"] ? 1 : 0);
     footState.yaw += keyTurn * 1.8 * dt;
-    footState.pitch = Math.max(-1.1, Math.min(1.1, footState.pitch + keyPitch * 1.2 * dt));
+    footState.pitch = Math.max(
+      -1.18,
+      Math.min(1.18, footState.pitch + keyPitch * 1.2 * dt)
+    );
 
     const fwd = new THREE.Vector3(-Math.sin(footState.yaw), 0, -Math.cos(footState.yaw));
     const rgt = new THREE.Vector3(Math.cos(footState.yaw), 0, -Math.sin(footState.yaw));
@@ -1025,48 +1305,146 @@ const update = (now) => {
     if (keys["KeyD"]) move.add(rgt);
     if (keys["KeyA"]) move.sub(rgt);
 
+    // Query exact 3D Terrain Ground Height & 4-Wave Gerstner Ocean Surface Height
+    const groundWorldY =
+      getSurfaceY(PLANET_RADIUS, footState.pos.x, footState.pos.z, currentSystemIndex) -
+      PLANET_RADIUS;
+    const waterWorldY = getWaterSurfaceWorldY(
+      PLANET_RADIUS,
+      footState.pos.x,
+      footState.pos.z,
+      timeSec,
+      currentSystemIndex
+    );
+
+    const feetY = footState.pos.y - 1.75;
+    const submersion = waterWorldY - feetY; // > 0 means standing/swimming in water!
+    const wasInWater = footState.inWater;
+    footState.inWater = submersion > 0.35;
+    footState.waterSplashCooldown = Math.max(0, footState.waterSplashCooldown - dt);
+
+    if (footState.inWater && !wasInWater && footState.waterSplashCooldown <= 0) {
+      Audio.sfx.splash(0.85);
+      spawnWaterRipple(planet, footState.pos.x, footState.pos.z, 5.2);
+      footState.waterSplashCooldown = 0.45;
+    }
+
+    const canSprint = isSprinting && crewStamina > 4;
+    const targetSpeed = footState.inWater
+      ? canSprint
+        ? 9.2
+        : 6.2
+      : canSprint
+      ? 14.0
+      : 8.5;
+
     if (move.lengthSq() > 0) {
-      move.normalize().multiplyScalar(8.5 * dt);
-      footState.pos.add(move);
-      footState.walkTime += dt * 9.5;
+      move.normalize().multiplyScalar(targetSpeed);
+      const accel = footState.inWater ? 5.5 : footState.grounded ? 11.0 : 4.0;
+      footState.vel.x = THREE.MathUtils.lerp(footState.vel.x, move.x, accel * dt);
+      footState.vel.z = THREE.MathUtils.lerp(footState.vel.z, move.z, accel * dt);
+      footState.walkTime += dt * (canSprint ? 13.0 : 9.2);
+
+      if (canSprint) {
+        crewStamina = Math.max(0, crewStamina - 10 * dt);
+      } else {
+        crewStamina = Math.min(100, crewStamina + 4 * dt);
+      }
+
+      // Dive or ascend along pitch angle when swimming in deeper water
+      if (footState.inWater && submersion > 1.0 && (keys["KeyW"] || keys["ArrowUp"])) {
+        footState.vel.y += Math.sin(footState.pitch) * 14.0 * dt;
+      }
 
       const stepPhase = Math.floor(footState.walkTime / Math.PI);
       if (stepPhase !== footState.lastStepPhase) {
         footState.lastStepPhase = stepPhase;
-        Audio.sfx.footstep(false);
+        if (footState.inWater) {
+          Audio.sfx.splash(0.42);
+          spawnWaterRipple(planet, footState.pos.x, footState.pos.z, 3.6);
+        } else if (footState.grounded) {
+          Audio.sfx.footstep(false);
+        }
       }
+    } else {
+      const damping = footState.inWater ? 0.04 : 0.002;
+      footState.vel.x *= Math.pow(damping, dt);
+      footState.vel.z *= Math.pow(damping, dt);
+      crewStamina = Math.min(100, crewStamina + 8 * dt);
     }
 
-    const dist = Math.hypot(footState.pos.x, footState.pos.z);
-    if (dist > 110) {
-      footState.pos.x *= 110 / dist;
-      footState.pos.z *= 110 / dist;
+    // Vertical Physics: Gravity vs Archimedes Hydrodynamic Buoyancy!
+    if (footState.inWater) {
+      // Float smoothly on the Gerstner ocean waves at chest level (eye ~ waterWorldY + 0.65m)
+      const targetFloatEyeY = waterWorldY + 0.65;
+      const buoyancyError = targetFloatEyeY - footState.pos.y;
+      footState.vel.y += (buoyancyError * 14.5 - footState.vel.y * 4.2) * dt;
+      UI.setFlightState("OCEAN SWIMMING");
+    } else {
+      footState.vel.y -= planetGravity * dt;
+      UI.setFlightState(footState.grounded ? "PLANET SURFACE" : "LOW-G AIRBORNE");
     }
+
+    footState.pos.addScaledVector(footState.vel, dt);
+
+    // Vast 480m radius exploration zone (nearly 1 km across!)
+    const dist = Math.hypot(footState.pos.x, footState.pos.z);
+    if (dist > 460) {
+      footState.pos.x *= 460 / dist;
+      footState.pos.z *= 460 / dist;
+    }
+
+    // Terrain Floor Collision
+    const newGroundY =
+      getSurfaceY(PLANET_RADIUS, footState.pos.x, footState.pos.z, currentSystemIndex) -
+      PLANET_RADIUS;
+    const minEyeY = newGroundY + 1.75;
+    if (footState.pos.y <= minEyeY) {
+      footState.pos.y = minEyeY;
+      if (footState.vel.y < 0) footState.vel.y = 0;
+      footState.grounded = true;
+    } else {
+      footState.grounded = false;
+    }
+
+    const headBob =
+      move.lengthSq() > 0 && footState.grounded && !footState.inWater
+        ? Math.sin(footState.walkTime) * 0.07
+        : 0;
+
+    const isHeadSubmerged = footState.pos.y + headBob < waterWorldY + 0.08;
+    UI.setUnderwater(isHeadSubmerged || footState.inWater);
 
     const distToRamp = Math.hypot(footState.pos.x, footState.pos.z - 3.5);
-    if (distToRamp < 5.0) {
+    if (distToRamp < 6.0) {
       UI.setInteractPrompt("[E] WALK UP BOARDING RAMP INTO SHIP INTERIOR");
+    } else if (footState.inWater) {
+      UI.setInteractPrompt("🌊 OCEAN BUOYANCY ACTIVE — SPACE: SWIM UP • WASD: SWIM");
     } else {
       UI.setInteractPrompt(null);
     }
 
-    const groundWorldY =
-      getSurfaceY(PLANET_RADIUS, footState.pos.x, footState.pos.z) - PLANET_RADIUS;
-    const bob = move.lengthSq() > 0 ? Math.sin(footState.walkTime) * 0.075 : 0;
-    footState.pos.y = groundWorldY + 1.75 + bob;
-
-    camera.position.copy(footState.pos);
-    updateAtmosphericEnvironment(footState.pos);
+    camera.position.set(footState.pos.x, footState.pos.y + headBob, footState.pos.z);
+    updateAtmosphericEnvironment(camera.position, isHeadSubmerged);
     lookEuler.set(footState.pitch, footState.yaw, 0, "YXZ");
     camera.quaternion.setFromEuler(lookEuler);
 
-    UI.setSpeed(move.lengthSq() > 0 ? 8 : 0);
+    const horizSpeed = Math.hypot(footState.vel.x, footState.vel.z, footState.vel.y);
+    UI.setSpeed(horizSpeed, "m/s");
+    UI.setStamina(crewStamina);
+    UI.setHeading(footState.yaw);
+    UI.setAltitude(
+      footState.inWater ? -(waterWorldY - (footState.pos.y - 1.4)) : footState.pos.y,
+      sys.gravity || 1.0,
+      footState.inWater
+    );
   }
   // =========================================================================
-  // MODE C: STARSHIP FLIGHT (COCKPIT / THIRD PERSON / CINEMATIC)
+  // MODE C: 6-DOF STARSHIP FLIGHT & OCEAN WATER BUOYANCY PHYSICS
   // =========================================================================
   else {
     UI.setInteractPrompt(null);
+    UI.setUnderwater(false);
 
     const throttleInput =
       (keys["KeyW"] || keys["ArrowUp"] ? 1 : 0) -
@@ -1077,24 +1455,23 @@ const update = (now) => {
     const rollInput = (keys["KeyQ"] ? 1 : 0) - (keys["KeyE"] ? 1 : 0);
     const pitchInput = (keys["KeyR"] ? 1 : 0) - (keys["KeyF"] ? 1 : 0);
 
-    // Apply drag-mouse look or ship steering with zero drift when mouse is still
     if (isDraggingMouse && (mouse.dx !== 0 || mouse.dy !== 0)) {
-      if (camMode === CAM.COCKPIT) {
-        shipState.yaw -= mouse.dx * lookSens * 0.85;
-        shipState.pitch = Math.max(
-          -1.05,
-          Math.min(1.05, shipState.pitch - mouse.dy * lookSens * 0.85)
-        );
-      } else {
-        shipState.yaw -= mouse.dx * lookSens;
-        shipState.pitch = Math.max(
-          -1.05,
-          Math.min(1.05, shipState.pitch - mouse.dy * lookSens)
-        );
-      }
+      const factor = camMode === CAM.COCKPIT ? 0.85 : 1.0;
+      shipState.yaw -= mouse.dx * lookSens * factor;
+      shipState.pitch = Math.max(
+        -1.05,
+        Math.min(1.05, shipState.pitch - mouse.dy * lookSens * factor)
+      );
     }
     mouse.dx = 0;
     mouse.dy = 0;
+
+    const boostMultiplier = isSprinting && crewStamina > 5 ? 1.85 : 1.0;
+    if (isSprinting && shipState.thrust > 0.1) {
+      crewStamina = Math.max(0, crewStamina - 6 * dt);
+    } else {
+      crewStamina = Math.min(100, crewStamina + 8 * dt);
+    }
 
     if (throttleInput > 0) {
       if (shipState.landed) {
@@ -1107,12 +1484,13 @@ const update = (now) => {
     } else if (throttleInput < 0) {
       shipState.thrust = Math.max(0, shipState.thrust - 1.6 * dt);
     } else {
-      shipState.thrust *= 0.985;
+      shipState.thrust *= 0.99;
     }
 
-    Audio.updateEngineHum(shipState.thrust, !shipState.landed);
+    Audio.updateEngineHum(shipState.thrust * boostMultiplier, !shipState.landed);
 
     if (!shipState.landed) {
+      // Smooth angular velocity & aerodynamic banking
       shipState.yaw += yawInput * 1.35 * dt;
       shipState.pitch = Math.max(
         -1.15,
@@ -1120,30 +1498,74 @@ const update = (now) => {
       );
       shipState.roll = THREE.MathUtils.lerp(
         shipState.roll,
-        -yawInput * 0.48 + rollInput * 0.7,
+        -yawInput * 0.52 + rollInput * 0.72,
         5 * dt
       );
 
-      const targetSpeed = shipState.thrust * shipState.maxSpeed;
-      shipState.speed = THREE.MathUtils.lerp(shipState.speed, targetSpeed, 4 * dt);
+      const prevSpeed = shipState.speed;
+      const targetSpeed = shipState.thrust * shipState.maxSpeed * boostMultiplier;
+      shipState.speed = THREE.MathUtils.lerp(shipState.speed, targetSpeed, 3.8 * dt);
 
       updateShipVectors();
-      shipState.pos.addScaledVector(shipState.forward, shipState.speed * 60 * dt);
 
-      const dx = shipState.pos.x;
-      const dy = shipState.pos.y + PLANET_RADIUS;
-      const dz = shipState.pos.z;
-      const distFromPlanetCenter = Math.hypot(dx, dy, dz);
-      const minAlt = PLANET_RADIUS + 1.8;
-      if (distFromPlanetCenter < minAlt) {
-        const scale = minAlt / Math.max(0.001, distFromPlanetCenter);
-        shipState.pos.x = dx * scale;
-        shipState.pos.y = dy * scale - PLANET_RADIUS;
-        shipState.pos.z = dz * scale;
+      // Integrate 3D Newtonian + Aerodynamic Velocity Vector
+      const desiredVel = shipState.forward
+        .clone()
+        .multiplyScalar(shipState.speed * 65);
+      shipState.vel.lerp(desiredVel, 4.2 * dt);
+
+      // Subtle Planetary Gravity Pull when hovering at very low speed in atmosphere
+      if (shipState.pos.y < 95 && shipState.thrust < 0.15) {
+        shipState.vel.y -= planetGravity * 0.22 * dt;
+      }
+
+      shipState.pos.addScaledVector(shipState.vel, dt);
+
+      // Dynamic G-Force calculation from linear acceleration + banking turn load
+      const accelG = Math.abs(shipState.speed - prevSpeed) / Math.max(0.008, dt) * 1.8;
+      const turnG = Math.abs(shipState.roll) * 1.45;
+      shipState.gForce = THREE.MathUtils.lerp(
+        shipState.gForce,
+        (sys.gravity || 1.0) + accelG + turnG + (boostMultiplier > 1 ? 1.2 : 0),
+        6 * dt
+      );
+
+      // Check Terrain & Ocean Surface Collision / Hydro-Buoyancy!
+      const terrainFloorY =
+        getSurfaceY(PLANET_RADIUS, shipState.pos.x, shipState.pos.z, currentSystemIndex) -
+        PLANET_RADIUS +
+        1.65;
+      const oceanSurfaceY =
+        getWaterSurfaceWorldY(
+          PLANET_RADIUS,
+          shipState.pos.x,
+          shipState.pos.z,
+          timeSec,
+          currentSystemIndex
+        ) + 1.35;
+
+      if (sys.hasWater && oceanSurfaceY > terrainFloorY && shipState.pos.y < oceanSurfaceY) {
+        // Ship is skimming or floating on the planetary ocean!
+        shipState.pos.y = THREE.MathUtils.lerp(shipState.pos.y, oceanSurfaceY, 8 * dt);
+        shipState.vel.y = Math.max(0, shipState.vel.y);
+        shipState.pitch = THREE.MathUtils.lerp(shipState.pitch, 0.04, 4 * dt);
+        ship.setSteamIntensity(0.65);
+        if (Math.random() < 0.25) {
+          spawnWaterRipple(planet, shipState.pos.x, shipState.pos.z, 7.5);
+        }
+        UI.setFlightState("OCEAN HYDRO-SKIM");
+      } else if (shipState.pos.y < terrainFloorY) {
+        shipState.pos.y = terrainFloorY;
+        shipState.vel.y = Math.max(0, shipState.vel.y);
+        UI.setFlightState("LOW ALTITUDE");
+      } else {
+        UI.setFlightState(shipState.pos.y < 120 ? "ATMOSPHERIC FLIGHT" : "ORBITAL FLIGHT");
       }
     } else {
       shipState.speed = 0;
       shipState.thrust = 0;
+      shipState.vel.set(0, 0, 0);
+      shipState.gForce = sys.gravity || 1.0;
     }
 
     if (ship.__quantumRing) {
@@ -1152,7 +1574,7 @@ const update = (now) => {
     }
 
     updateShipTransform();
-    updateAtmosphericEnvironment(shipState.pos);
+    const alt = updateAtmosphericEnvironment(shipState.pos, false);
 
     if (cockpit.__throttle) {
       cockpit.__throttle.rotation.x = -0.25 - shipState.thrust * 0.55;
@@ -1163,16 +1585,17 @@ const update = (now) => {
     }
 
     const thrusters = ship.userData.thrusters || [];
-    const pulse = 0.55 + shipState.thrust * 0.85 + Math.sin(now * 0.028) * 0.1;
+    const pulse =
+      0.55 + shipState.thrust * 0.85 * boostMultiplier + Math.sin(now * 0.028) * 0.1;
     for (const tGroup of thrusters) {
       if (tGroup.userData && tGroup.userData.outer) {
         tGroup.userData.outer.material.opacity = Math.min(1, pulse * 0.85);
         tGroup.userData.inner.material.opacity = Math.min(1, pulse);
       }
-      tGroup.scale.set(1, 1, 0.55 + shipState.thrust * 1.45);
+      tGroup.scale.set(1, 1, 0.55 + shipState.thrust * 1.45 * boostMultiplier);
     }
     if (ship.__engineLight) {
-      ship.__engineLight.intensity = 1.4 + shipState.thrust * 4.0;
+      ship.__engineLight.intensity = 1.4 + shipState.thrust * 4.0 * boostMultiplier;
     }
 
     if (camMode === CAM.COCKPIT) {
@@ -1202,7 +1625,10 @@ const update = (now) => {
       camera.lookAt(shipState.pos);
     }
 
-    UI.setSpeed(shipState.speed * 1450);
+    UI.setSpeed(shipState.speed * 1450, "km/s");
+    UI.setStamina(crewStamina);
+    UI.setHeading(shipState.yaw);
+    UI.setAltitude(alt, shipState.gForce, false);
   }
 
   composer.render();

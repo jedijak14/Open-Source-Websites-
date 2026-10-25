@@ -354,17 +354,131 @@ export const buildCockpit = () => {
   cockpit.__locker = locker;
   cockpit.add(locker);
 
-  // Port Wall: Cryo-Stasis Medical Pod (x = +1.72, z = +2.6)
+  // Port Wall Forward: Cryo-Stasis Medical Pod (x = +1.75, z = +2.15)
   const cryoPod = new THREE.Group();
-  const cryoBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.9, 1.05), metalDark);
+  const cryoBase = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.9, 0.95), metalDark);
   const cryoGlass = new THREE.Mesh(
     new THREE.CylinderGeometry(0.26, 0.26, 1.55, 16),
     new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.35 })
   );
   cryoGlass.position.set(-0.18, 0.05, 0);
   cryoPod.add(cryoBase, cryoGlass);
-  cryoPod.position.set(1.75, -0.1, 2.6);
+  cryoPod.position.set(1.75, -0.1, 2.15);
   cockpit.add(cryoPod);
+
+  // =========================================================================
+  // CAPTAIN'S QUARTERS SLEEPING BUNK BED (Port Alcove: x = +1.32, z = +4.65)
+  // Interactive Bed where the player can lie down & sleep [E]
+  // =========================================================================
+  const bedGroup = new THREE.Group();
+  bedGroup.position.set(1.32, -0.62, 4.65);
+
+  // Heavy Titanium Bunk Frame & Under-bed Storage Drawers
+  const bedBase = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.38, 2.08), metalDark);
+  bedBase.position.y = -0.18;
+  bedGroup.add(bedBase);
+
+  // Illuminated Under-Bed Neon Trim Strip
+  const bedNeonStrip = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.03, 2.02), cyanGlow);
+  bedNeonStrip.position.set(-0.02, -0.34, 0);
+  bedGroup.add(bedNeonStrip);
+
+  // Headboard & Footboard Alcove Bulkheads
+  const headboard = new THREE.Mesh(new THREE.BoxGeometry(1.08, 1.15, 0.12), metal);
+  headboard.position.set(0, 0.36, -1.02);
+  const footboard = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.72, 0.1), metal);
+  footboard.position.set(0, 0.15, 1.02);
+  bedGroup.add(headboard, footboard);
+
+  // Overhead Bunk Canopy Valance
+  const bunkCanopy = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 2.12), metalDark);
+  bunkCanopy.position.set(0, 1.28, 0);
+  const bunkCanopyGlow = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.025, 1.85), emeraldGlow);
+  bunkCanopyGlow.position.set(-0.04, 1.21, 0);
+  bedGroup.add(bunkCanopy, bunkCanopyGlow);
+
+  // Quilted Ergonomic Mattress
+  const mattressMat = new THREE.MeshStandardMaterial({
+    color: 0xe2e8f0,
+    roughness: 0.78,
+    metalness: 0.05
+  });
+  const mattress = new THREE.Mesh(new THREE.BoxGeometry(0.98, 0.18, 1.92), mattressMat);
+  mattress.position.set(-0.02, 0.08, 0);
+  bedGroup.add(mattress);
+
+  // Two Plush Memory-Foam Pillows at the Head of the Bed (z = -0.72)
+  const pillowMat = new THREE.MeshStandardMaterial({
+    color: 0xf8fafc,
+    roughness: 0.65,
+    metalness: 0.02
+  });
+  const pillow1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.34), pillowMat);
+  pillow1.position.set(-0.22, 0.21, -0.72);
+  pillow1.rotation.x = 0.18;
+  const pillow2 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.34), pillowMat);
+  pillow2.position.set(0.2, 0.21, -0.72);
+  pillow2.rotation.x = 0.18;
+  bedGroup.add(pillow1, pillow2);
+
+  // Captain's Thermal Duvet Blanket (Deep Royal Blue with Cyan Piping)
+  const blanketMat = new THREE.MeshStandardMaterial({
+    color: 0x1d4ed8,
+    roughness: 0.72,
+    metalness: 0.08
+  });
+  const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.19, 1.32), blanketMat);
+  blanket.position.set(-0.02, 0.1, 0.28);
+  const blanketFold = new THREE.Mesh(
+    new THREE.BoxGeometry(1.01, 0.21, 0.18),
+    new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.5 })
+  );
+  blanketFold.position.set(-0.02, 0.11, -0.34);
+  bedGroup.add(blanket, blanketFold);
+
+  // Bedside Biometric Sleep Monitor Screen on the Wall
+  const bedScreenCanvas = document.createElement("canvas");
+  bedScreenCanvas.width = 256;
+  bedScreenCanvas.height = 128;
+  const bCtx = bedScreenCanvas.getContext("2d");
+  bCtx.fillStyle = "#04101f";
+  bCtx.fillRect(0, 0, 256, 128);
+  bCtx.strokeStyle = "#38bdf8";
+  bCtx.lineWidth = 4;
+  bCtx.strokeRect(4, 4, 248, 120);
+  bCtx.fillStyle = "#34d399";
+  bCtx.font = "bold 18px monospace";
+  bCtx.fillText("CAPTAIN'S QUARTERS", 18, 34);
+  bCtx.fillStyle = "#7dd3fc";
+  bCtx.font = "14px monospace";
+  bCtx.fillText("CIRCADIAN SLEEP BAY", 18, 60);
+  bCtx.fillStyle = "#facc15";
+  bCtx.fillText("[E] SLEEP & RESTORE", 18, 92);
+  bCtx.fillStyle = "#94a3b8";
+  bCtx.font = "12px monospace";
+  bCtx.fillText("STAMINA 100% // +8H SOLAR", 18, 112);
+
+  const bedScreenTex = new THREE.CanvasTexture(bedScreenCanvas);
+  const bedScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.68, 0.34),
+    new THREE.MeshBasicMaterial({ map: bedScreenTex })
+  );
+  bedScreen.rotation.y = -Math.PI / 2;
+  bedScreen.position.set(0.48, 0.65, 0.0);
+  bedGroup.add(bedScreen);
+
+  // Warm Bedside Reading Light
+  const bedLamp = new THREE.PointLight(0xfde68a, 1.35, 4.2);
+  bedLamp.position.set(0.1, 0.95, -0.65);
+  bedGroup.add(bedLamp);
+
+  cockpit.add(bedGroup);
+  cockpit.__bed = bedGroup;
+
+  // Starboard Wall Opposite Bed: Crew Galley & Observation Lounge Bench (x = -1.45, z = +4.65)
+  const loungeBench = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.42, 1.55), seatMat);
+  loungeBench.position.set(-1.52, -0.68, 4.65);
+  cockpit.add(loungeBench);
 
   // =========================================================================
   // SECTION 3: AFT ENGINEERING, HYPERDRIVE REACTOR & AIRLOCK (z = +5.8 to +9.6)

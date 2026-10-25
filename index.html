@@ -17,6 +17,23 @@
 <body>
   <canvas id="game-canvas"></canvas>
 
+  <!-- ================= UNDERWATER VISOR TINT OVERLAY ================= -->
+  <div id="underwater-overlay" class="underwater-overlay hidden">
+    <div class="underwater-badge">🌊 HYDRO-BUOYANCY ACTIVE &bull; WASD: SWIM &bull; SPACE: SURFACE</div>
+  </div>
+
+  <!-- ================= CAPTAIN'S BED SLEEP OVERLAY ================= -->
+  <div id="sleep-overlay" class="sleep-overlay hidden">
+    <div class="sleep-card">
+      <div class="sleep-icon">🛏️</div>
+      <div id="sleep-title" class="sleep-title">CAPTAIN'S QUARTERS // CIRCADIAN SLEEP CYCLE</div>
+      <div id="sleep-subtext" class="sleep-subtext">RESTORING CREW STAMINA &amp; ADVANCING PLANETARY SOLAR PHASE (+8 HRS)...</div>
+      <div class="sleep-progress-track">
+        <div id="sleep-progress-fill" class="sleep-progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MAIN MENU ================= -->
   <div id="menu" class="overlay">
     <div class="menu-panel">
@@ -28,8 +45,8 @@
         <button class="btn" id="btn-credits" data-audio="click">Credits</button>
       </div>
       <div class="menu-hint">
-        <b>WASD</b>: Fly / Walk &bull; <b>Mouse</b>: Look &bull; <b>I</b>: Walk Around Inside Ship<br>
-        <b>L</b>: Animated Planetary Landing / Takeoff &bull; <b>TAB</b>: Walk on Planet &bull; <b>SPACE</b>: Warp Cutscene
+        <b>WASD</b>: Fly / Walk / Swim &bull; <b>Drag Mouse</b>: Look &bull; <b>I</b>: Walk Inside Ship &amp; Sleep in Bed<br>
+        <b>L</b>: Landing (with Steam) / Takeoff &bull; <b>TAB</b>: Explore Planet &amp; Oceans &bull; <b>SPACE</b>: Jump / Warp
       </div>
     </div>
   </div>
@@ -40,10 +57,10 @@
       <div class="logo">CREDITS</div>
       <div class="credits-list">
         <div class="credit-row"><span class="role">Game Design &amp; Code</span><span class="name">Arena Agent (Open-Source-Websites-)</span></div>
-        <div class="credit-row"><span class="role">3D Engine &amp; Post-FX</span><span class="name">Three.js r164 + UnrealBloom HDR + IBL</span></div>
+        <div class="credit-row"><span class="role">3D Engine &amp; Physics</span><span class="name">Three.js r164 + 6-DOF Flight &amp; Hydro-Buoyancy</span></div>
         <div class="credit-row"><span class="role">Online 3D Models</span><span class="name">NASA 3D Resources, Threex &amp; Khronos GLTF</span></div>
         <div class="credit-row"><span class="role">Public Music &amp; SFX</span><span class="name">Scott Buckley (CC-BY) &amp; Kenney Sci-Fi (CC0)</span></div>
-        <div class="credit-row"><span class="role">Cutscenes &amp; VFX</span><span class="name">Volumetric Landing Steam, Warp &amp; Walkable Deck</span></div>
+        <div class="credit-row"><span class="role">Worlds &amp; Interior</span><span class="name">Gerstner Oceans, Rayleigh Sky &amp; Captain's Bed</span></div>
         <div class="credit-row role-only">Thank you for playing Stellar Voyage.</div>
       </div>
       <div class="menu-buttons credits-buttons">
@@ -52,34 +69,68 @@
     </div>
   </div>
 
-  <!-- ================= HUD ================= -->
+  <!-- ================= FULL VISOR & FLIGHT HUD ================= -->
   <div id="hud" class="hud hidden">
+    <!-- Top Compass & Planetary Environment Bar -->
+    <div class="hud-compass-bar">
+      <div class="compass-pill">
+        <span class="compass-label">HDG</span>
+        <span id="hud-heading" class="compass-val">000° N</span>
+      </div>
+      <div class="compass-pill">
+        <span class="compass-label">GRAVITY</span>
+        <span id="hud-gravity" class="compass-val">1.00 G</span>
+      </div>
+      <div class="compass-pill">
+        <span class="compass-label">ATMOS</span>
+        <span id="hud-atmos" class="compass-val">104 kPa O₂/N₂</span>
+      </div>
+      <div class="compass-pill">
+        <span class="compass-label">SOLAR TIME</span>
+        <span id="hud-solar-time" class="compass-val">12:00</span>
+      </div>
+    </div>
+
+    <!-- Top-Left Quantum Hyperdrive Core & Crew Stamina Bars -->
     <div class="hud-bar">
       <div class="hud-label">QUANTUM HYPERDRIVE CORE</div>
       <div class="hud-meter">
         <div id="warp-meter-fill" class="meter-fill"></div>
       </div>
       <div id="warp-status" class="hud-status">HOLD SPACE TO CHARGE WARP</div>
+
+      <div class="hud-label stamina-label">CREW STAMINA &amp; CIRCADIAN REST</div>
+      <div class="hud-meter stamina-meter">
+        <div id="stamina-meter-fill" class="meter-fill stamina-fill"></div>
+      </div>
     </div>
 
+    <!-- Top-Right Quick Action Bar -->
     <div class="hud-actions">
-      <button class="hud-btn" id="hud-btn-warp" title="Engage Quantum Warp Cutscene (SPACE)">⚡ Warp (SPACE)</button>
-      <button class="hud-btn" id="hud-btn-land" title="Animated Planetary Landing with Steam / Liftoff (L)">🛬 Land / Liftoff (L)</button>
-      <button class="hud-btn" id="hud-btn-ship-walk" title="Unstrap &amp; Walk Around Inside Your Ship (I)">🚶 Walk In Ship (I)</button>
-      <button class="hud-btn" id="hud-btn-foot" title="Walk on Planet Surface Among Alien Animals (TAB)">🪐 Planet Walk (TAB)</button>
-      <button class="hud-btn" id="hud-btn-hull" title="Switch Online 3D Spaceship Model (H)">🚀 Ship Hull (H)</button>
-      <button class="hud-btn" id="hud-btn-cam" title="Cycle Flight Camera (C)">🎥 Camera (C)</button>
+      <button class="hud-btn" id="hud-btn-warp" title="Engage Quantum Warp Cutscene (SPACE)">⚡ Warp</button>
+      <button class="hud-btn" id="hud-btn-land" title="Animated Planetary Landing with Steam / Liftoff (L)">🛬 Land/Lift (L)</button>
+      <button class="hud-btn" id="hud-btn-ship-walk" title="Walk Around Inside Your Ship (I)">🚶 Ship Deck (I)</button>
+      <button class="hud-btn" id="hud-btn-sleep" title="Go to Captain's Bed &amp; Sleep (B)">🛏️ Sleep (B)</button>
+      <button class="hud-btn" id="hud-btn-foot" title="Walk on Planet &amp; Swim in Oceans (TAB)">🌊 Planet/Swim (TAB)</button>
+      <button class="hud-btn" id="hud-btn-hull" title="Switch Online 3D Spaceship Model (H)">🚀 Hull (H)</button>
+      <button class="hud-btn" id="hud-btn-cam" title="Cycle Flight Camera (C)">🎥 Cam (C)</button>
       <button class="hud-btn" id="hud-btn-menu" title="Pause Menu (ESC)">☰ Menu</button>
     </div>
 
-    <!-- Interactive Contextual Prompt (Pilot Seat / Holo-Table / Airlock / Boarding Ramp) -->
+    <!-- Interactive Contextual Prompt (Pilot Seat / Captain's Bed / Holo-Table / Airlock / Ramp) -->
     <div id="hud-interact" class="hud-interact hidden">[E] INTERACT</div>
 
+    <!-- Bottom-Left Physics & Telemetry Readout -->
     <div class="hud-telemetry">
       <div class="hud-row">
         <div class="hud-label">VELOCITY</div>
         <div id="hud-speed" class="hud-value">0</div>
-        <div class="hud-unit">km/s</div>
+        <div id="hud-speed-unit" class="hud-unit">km/s</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-label">ALTITUDE</div>
+        <div id="hud-altitude" class="hud-value">68.0</div>
+        <div id="hud-alt-unit" class="hud-unit">m ASL &bull; 1.00 G</div>
       </div>
       <div class="hud-row">
         <div class="hud-label">MODE</div>
@@ -89,13 +140,19 @@
       <div class="hud-row">
         <div class="hud-label">STAR SYSTEM</div>
         <div id="hud-system" class="hud-value">KEPLER-442b</div>
-        <div class="hud-unit" id="hud-biome">VERDANT XENO-PLAINS</div>
+        <div class="hud-unit" id="hud-biome">ARCHIPELAGO OCEAN WORLD</div>
       </div>
     </div>
 
-    <div class="hud-crosshair"></div>
+    <!-- Center Visor Pitch Ladder & Reticle -->
+    <div class="hud-visor-reticle">
+      <div class="reticle-wing left-wing"></div>
+      <div class="hud-crosshair"></div>
+      <div class="reticle-wing right-wing"></div>
+    </div>
+
     <div class="hud-help" id="hud-help">
-      <b>I</b>: Walk Inside Ship &bull; <b>L</b>: Animated Landing/Liftoff &bull; <b>TAB</b>: Walk on Planet &bull; <b>C</b>: Camera &bull; Hold <b>SPACE</b>: Warp Cutscene
+      <b>WASD / Shift</b>: Fly/Boost &bull; <b>I</b>: Walk in Ship &bull; <b>B</b>: Sleep in Bed &bull; <b>L</b>: Land/Liftoff &bull; <b>TAB</b>: Explore Planet &amp; Swim
     </div>
   </div>
 

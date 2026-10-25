@@ -236,6 +236,185 @@ html, body {
   letter-spacing: 0.7px;
 }
 
+.stamina-label {
+  margin-top: 9px;
+}
+
+.stamina-meter {
+  height: 7px;
+}
+
+.stamina-fill {
+  width: 100%;
+  background: linear-gradient(90deg, #10b981, #34d399, #38bdf8);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.65);
+}
+
+/* Top-center Compass & Planetary Telemetry Bar */
+.hud-compass-bar {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(10, 18, 34, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 22px;
+  padding: 6px 16px;
+  backdrop-filter: blur(5px);
+}
+
+.compass-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.compass-pill:last-child {
+  border-right: none;
+}
+
+.compass-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #64748b;
+}
+
+.compass-val {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #38bdf8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Center Visor Pitch Ladder & Reticle */
+.hud-visor-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reticle-wing {
+  width: 32px;
+  height: 8px;
+  border-top: 1.5px solid rgba(56, 189, 248, 0.42);
+}
+
+.left-wing {
+  border-left: 1.5px solid rgba(56, 189, 248, 0.42);
+}
+
+.right-wing {
+  border-right: 1.5px solid rgba(56, 189, 248, 0.42);
+}
+
+/* Underwater Visor Overlay */
+.underwater-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 35;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    rgba(6, 182, 212, 0.14) 0%,
+    rgba(3, 105, 161, 0.38) 100%
+  );
+  box-shadow: inset 0 0 90px rgba(8, 145, 178, 0.55);
+}
+
+.underwater-badge {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 51, 68, 0.88);
+  border: 1px solid #22d3ee;
+  color: #cffafe;
+  padding: 6px 18px;
+  border-radius: 18px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.45);
+}
+
+/* Captain's Bed Sleep Overlay */
+.sleep-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, rgba(4, 12, 28, 0.88) 0%, rgba(1, 3, 10, 0.98) 100%);
+  backdrop-filter: blur(8px);
+}
+
+.sleep-card {
+  width: 460px;
+  max-width: 90vw;
+  padding: 34px 30px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  box-shadow: 0 0 50px rgba(16, 185, 129, 0.25);
+  text-align: center;
+}
+
+.sleep-icon {
+  font-size: 38px;
+  margin-bottom: 10px;
+}
+
+.sleep-title {
+  font-size: 17px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  color: #34d399;
+  margin-bottom: 8px;
+}
+
+.sleep-subtext {
+  font-size: 12px;
+  color: #bae6fd;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+}
+
+.sleep-progress-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(2, 6, 23, 0.9);
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.sleep-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #10b981, #38bdf8, #818cf8);
+  transition: width 0.08s linear;
+}
+
 /* Top-right quick actions */
 .hud-actions {
   position: absolute;
