@@ -1,5 +1,6 @@
 /**
- * Stellar Voyage — Planet, NASA Surface Textures, Online 3D Outpost & Fauna
+ * Stellar Voyage — Colossal Planet, Physical Rayleigh/Mie Atmosphere Shader,
+ * Volumetric Rotating Cloud Layer, NASA Surface Maps, Outpost & Fauna
  * North Pole landing pad is at local (0, radius, 0).
  * When planet is placed at world (0, -radius, 0), the landing pad is at world (0, 0, 0).
  */
@@ -8,15 +9,20 @@ import * as THREE from "three";
 import { makePlanetTextures } from "./textures.js";
 import { sharedGLTFLoader, sharedTexLoader } from "./ship.js";
 
+export const PLANET_RADIUS = 680;
+
 export const SYSTEMS = [
   {
     name: "KEPLER-442b",
     biome: "VERDANT XENO-PLAINS",
     textureUrl: "./assets/textures/earth.jpg",
-    tintHex: 0x99f6e4,
+    tintHex: 0xa7f3d0,
     base: [0.16, 0.38, 0.28],
     accent: [0.28, 0.58, 0.42],
     atmosHex: 0x38bdf8,
+    horizonHex: 0x7dd3fc,
+    sunsetHex: 0xf97316,
+    cloudColor: 0xf0f9ff,
     ringHex: null,
     faunaColors: [0x34d399, 0xfbbf24, 0xa78bfa, 0x38bdf8]
   },
@@ -28,6 +34,9 @@ export const SYSTEMS = [
     base: [0.48, 0.22, 0.14],
     accent: [0.72, 0.36, 0.18],
     atmosHex: 0xf97316,
+    horizonHex: 0xfdba74,
+    sunsetHex: 0xef4444,
+    cloudColor: 0xffedd5,
     ringHex: 0xfdba74,
     faunaColors: [0xfca5a5, 0xfde047, 0x22d3ee, 0xc084fc]
   },
@@ -38,7 +47,10 @@ export const SYSTEMS = [
     tintHex: 0xa5f3fc,
     base: [0.18, 0.28, 0.48],
     accent: [0.35, 0.56, 0.82],
-    atmosHex: 0x818cf8,
+    atmosHex: 0x60a5fa,
+    horizonHex: 0xa5f3fc,
+    sunsetHex: 0xc084fc,
+    cloudColor: 0xe0f2fe,
     ringHex: 0x38bdf8,
     faunaColors: [0x22d3ee, 0xe879f9, 0x6ee7b7, 0x93c5fd]
   },
@@ -50,6 +62,9 @@ export const SYSTEMS = [
     base: [0.46, 0.38, 0.14],
     accent: [0.68, 0.58, 0.22],
     atmosHex: 0xfacc15,
+    horizonHex: 0xfef08a,
+    sunsetHex: 0xf59e0b,
+    cloudColor: 0xfef9c3,
     ringHex: null,
     faunaColors: [0xa3e635, 0xf472b6, 0x38bdf8, 0xfbbf24]
   },
@@ -61,6 +76,9 @@ export const SYSTEMS = [
     base: [0.22, 0.16, 0.32],
     accent: [0.45, 0.24, 0.62],
     atmosHex: 0xc084fc,
+    horizonHex: 0xe9d5ff,
+    sunsetHex: 0xf43f5e,
+    cloudColor: 0xf3e8ff,
     ringHex: 0xe879f9,
     faunaColors: [0xf43f5e, 0x2dd4bf, 0xc084fc, 0xfacc15]
   }
@@ -87,6 +105,111 @@ function createPadSteamTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
+// High-detail procedural weather & cyclone cloud map for the atmospheric cloud deck
+function createPlanetaryCloudTexture(seed = 1) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, 512, 256);
+
+  let s = seed * 4999 + 17;
+  const rand = () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+
+  // Soft zonal cloud bands + swirling storm cells
+  for (let i = 0; i < 240; i++) {
+    const x = rand() * 512;
+    const y = rand() * 256;
+    const rx = 18 + rand() * 68;
+    const ry = 5 + rand() * 18;
+    const alpha = 0.08 + rand() * 0.22;
+
+    const grad = ctx.createRadialGradient(x, y, 1, x, y, rx);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+    grad.addColorStop(0.55, `rgba(240, 249, 255, ${alpha * 0.55})`);
+    grad.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1.0, ry / rx);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2, 1);
+  return tex;
+}
+
+// Custom GLSL ShaderMaterial for Physical Rayleigh/Mie Atmospheric Scattering
+function createAtmosphereShaderMaterial(sys, isOuterHalo = false) {
+  const dayCol = new THREE.Color(sys.atmosHex);
+  const horizonCol = new THREE.Color(sys.horizonHex || sys.atmosHex);
+  const sunsetCol = new THREE.Color(sys.sunsetHex || 0xf97316);
+
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uSunDir: { value: new THREE.Vector3(0.55, 0.72, 0.42).normalize() },
+      uDayColor: { value: dayCol },
+      uHorizonColor: { value: horizonCol },
+      uSunsetColor: { value: sunsetCol },
+      uOuter: { value: isOuterHalo ? 1.0 : 0.0 }
+    },
+    vertexShader: `
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+        vWorldPos = worldPosition.xyz;
+        vWorldNormal = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uSunDir;
+      uniform vec3 uDayColor;
+      uniform vec3 uHorizonColor;
+      uniform vec3 uSunsetColor;
+      uniform float uOuter;
+      varying vec3 vWorldNormal;
+      varying vec3 vWorldPos;
+
+      void main() {
+        vec3 viewDir = normalize(cameraPosition - vWorldPos);
+        vec3 n = normalize(vWorldNormal);
+
+        // Sun illumination & terminator wrap
+        float sunDot = dot(n, uSunDir);
+        float dayFactor = smoothstep(-0.35, 0.55, sunDot);
+        float twilight = smoothstep(-0.4, 0.1, sunDot) * (1.0 - smoothstep(0.05, 0.55, sunDot));
+
+        // Optical depth / Fresnel limb scattering
+        float ndotv = abs(dot(n, viewDir));
+        float fresnel = pow(clamp(1.0 - ndotv, 0.0, 1.0), uOuter > 0.5 ? 2.4 : 1.75);
+
+        vec3 baseAtmos = mix(uDayColor, uHorizonColor, fresnel * 0.75);
+        vec3 finalColor = mix(baseAtmos, uSunsetColor, twilight * 0.68);
+
+        // Bright atmospheric rim visible both from orbit and from the surface horizon
+        float alpha = fresnel * (0.22 + 0.78 * dayFactor) * (uOuter > 0.5 ? 0.85 : 0.62);
+        gl_FragColor = vec4(finalColor * (1.15 + fresnel * 0.6), clamp(alpha, 0.0, 0.92));
+      }
+    `,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: isOuterHalo ? THREE.BackSide : THREE.FrontSide
+  });
+}
+
 function fitModelToHeight(obj, targetHeight = 3.0) {
   obj.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(obj);
@@ -105,7 +228,7 @@ function fitModelToHeight(obj, targetHeight = 3.0) {
   return wrapper;
 }
 
-export const buildPlanet = (radius = 85, systemIndex = 0) => {
+export const buildPlanet = (radius = PLANET_RADIUS, systemIndex = 0) => {
   const sys = SYSTEMS[systemIndex % SYSTEMS.length];
   const planet = new THREE.Group();
   planet.name = "planet";
@@ -115,13 +238,16 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
 
   const pTex = makePlanetTextures(systemIndex + 1, sys.base, sys.accent);
 
-  // ---------- Main Planetary Sphere (Procedural + NASA Planetary Texture) ----------
+  // ==========================================================================
+  // 1. COLOSSAL MAIN PLANETARY SPHERE (High-Seg Geometry + NASA Surface Map)
+  // ==========================================================================
   const surfaceMat = new THREE.MeshStandardMaterial({
     map: pTex.color,
     normalMap: pTex.normal,
+    normalScale: new THREE.Vector2(1.1, 1.1),
     roughnessMap: pTex.rough,
-    roughness: 0.72,
-    metalness: 0.12
+    roughness: 0.76,
+    metalness: 0.08
   });
 
   if (sys.textureUrl) {
@@ -131,6 +257,7 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
         nasaTex.colorSpace = THREE.SRGBColorSpace;
         nasaTex.wrapS = THREE.RepeatWrapping;
         nasaTex.wrapT = THREE.RepeatWrapping;
+        nasaTex.repeat.set(3, 2);
         surfaceMat.map = nasaTex;
         surfaceMat.color.setHex(sys.tintHex || 0xffffff);
         surfaceMat.needsUpdate = true;
@@ -141,65 +268,131 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
   }
 
   const surface = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 72, 72),
+    new THREE.SphereGeometry(radius, 112, 112),
     surfaceMat
   );
   surface.receiveShadow = true;
   planet.add(surface);
 
-  // ---------- Atmosphere Glow Halo ----------
-  const atmos = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 1.045, 48, 48),
-    new THREE.MeshBasicMaterial({
-      color: sys.atmosHex,
-      transparent: true,
-      opacity: 0.14,
-      side: THREE.BackSide,
-      depthWrite: false
-    })
+  // ==========================================================================
+  // 2. MULTI-LAYER PHYSICAL ATMOSPHERE & VOLUMETRIC CLOUD DECK
+  // ==========================================================================
+  // Layer 2A: Rotating Volumetric Cloud Deck Sphere (at 1.014 * radius, ~9.5m above surface)
+  const cloudTex = createPlanetaryCloudTexture(systemIndex + 1);
+  const cloudMat = new THREE.MeshStandardMaterial({
+    map: cloudTex,
+    color: sys.cloudColor || 0xffffff,
+    transparent: true,
+    opacity: 0.48,
+    roughness: 0.9,
+    metalness: 0.0,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const cloudMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.022, 80, 80),
+    cloudMat
   );
-  planet.add(atmos);
+  planet.add(cloudMesh);
+  planet.cloudMesh = cloudMesh;
 
-  // ---------- Optional Planetary Ring System ----------
+  // Layer 2B: Inner Rayleigh Atmospheric Scattering Shell (FrontSide)
+  const innerAtmosMat = createAtmosphereShaderMaterial(sys, false);
+  const innerAtmos = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.036, 80, 80),
+    innerAtmosMat
+  );
+  planet.add(innerAtmos);
+
+  // Layer 2C: Outer Mie/Rayleigh Atmospheric Corona Halo (BackSide)
+  const outerAtmosMat = createAtmosphereShaderMaterial(sys, true);
+  const outerAtmos = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.072, 80, 80),
+    outerAtmosMat
+  );
+  planet.add(outerAtmos);
+
+  // Layer 2D: Inner Surface Sky Dome (visible when flying inside the atmosphere or walking on the surface)
+  const skyDomeMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uSkyColor: { value: new THREE.Color(sys.atmosHex) },
+      uHorizonColor: { value: new THREE.Color(sys.horizonHex || sys.atmosHex) }
+    },
+    vertexShader: `
+      varying vec3 vLocalPos;
+      void main() {
+        vLocalPos = normalize(position);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uSkyColor;
+      uniform vec3 uHorizonColor;
+      varying vec3 vLocalPos;
+      void main() {
+        // Near North Pole (vLocalPos.y ~ 1.0 is zenith, lower y is horizon)
+        float horizonBand = 1.0 - smoothstep(0.82, 0.998, vLocalPos.y);
+        vec3 col = mix(uSkyColor * 0.45, uHorizonColor, horizonBand);
+        float alpha = smoothstep(0.65, 0.96, vLocalPos.y) * (0.28 + horizonBand * 0.46);
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    side: THREE.BackSide,
+    depthWrite: false
+  });
+  const skyDome = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 1.06, 64, 64),
+    skyDomeMat
+  );
+  planet.add(skyDome);
+  planet.skyDome = skyDome;
+
+  // ==========================================================================
+  // 3. PLANETARY RING SYSTEM (Scaled for Colossal Planet)
+  // ==========================================================================
   if (sys.ringHex) {
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(radius * 1.35, radius * 1.95, 64),
+      new THREE.RingGeometry(radius * 1.32, radius * 1.92, 96),
       new THREE.MeshBasicMaterial({
         color: sys.ringHex,
         transparent: true,
-        opacity: 0.24,
-        side: THREE.DoubleSide
+        opacity: 0.28,
+        side: THREE.DoubleSide,
+        depthWrite: false
       })
     );
-    ring.rotation.x = Math.PI / 2.4;
-    ring.rotation.y = 0.3;
+    ring.rotation.x = Math.PI / 2.35;
+    ring.rotation.y = 0.28;
     planet.add(ring);
   }
 
-  // ---------- North Pole Landing Pad at local (0, radius, 0) ----------
+  // ==========================================================================
+  // 4. NORTH POLE STARPORT LANDING PAD AT LOCAL (0, radius, 0)
+  // ==========================================================================
   const pad = new THREE.Group();
   pad.position.set(0, radius, 0);
 
   const padBase = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.5, 6.2, 0.25, 32),
-    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.75, roughness: 0.35 })
+    new THREE.CylinderGeometry(6.8, 7.8, 0.3, 40),
+    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.78, roughness: 0.34 })
   );
   pad.add(padBase);
 
   const padRing = new THREE.Mesh(
-    new THREE.RingGeometry(3.8, 4.4, 32),
+    new THREE.RingGeometry(4.6, 5.3, 40),
     new THREE.MeshBasicMaterial({ color: 0x22d3ee, side: THREE.DoubleSide })
   );
   padRing.rotation.x = -Math.PI / 2;
-  padRing.position.y = 0.15;
+  padRing.position.y = 0.17;
   pad.add(padRing);
 
   const padCenter = new THREE.Mesh(
-    new THREE.RingGeometry(1.1, 1.45, 24),
+    new THREE.RingGeometry(1.4, 1.85, 32),
     new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
   );
   padCenter.rotation.x = -Math.PI / 2;
-  padCenter.position.y = 0.15;
+  padCenter.position.y = 0.17;
   pad.add(padCenter);
 
   // 4 glowing landing beacon pillars + perimeter steam pipes around the pad
@@ -208,31 +401,30 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
 
   for (let b = 0; b < 4; b++) {
     const ang = (b / 4) * Math.PI * 2 + Math.PI / 4;
-    const bx = Math.cos(ang) * 5.0;
-    const bz = Math.sin(ang) * 5.0;
+    const bx = Math.cos(ang) * 6.0;
+    const bz = Math.sin(ang) * 6.0;
     const post = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.12, 0.16, 1.2, 8),
-      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 })
+      new THREE.CylinderGeometry(0.14, 0.18, 1.35, 10),
+      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.82, roughness: 0.28 })
     );
-    post.position.set(bx, 0.6, bz);
+    post.position.set(bx, 0.68, bz);
     const bulb = new THREE.Mesh(
-      new THREE.SphereGeometry(0.22, 10, 10),
+      new THREE.SphereGeometry(0.24, 12, 12),
       new THREE.MeshBasicMaterial({ color: 0x22d3ee })
     );
-    bulb.position.set(bx, 1.25, bz);
+    bulb.position.set(bx, 1.4, bz);
     pad.add(post, bulb);
 
-    // Ambient pad steam puffs rising from perimeter coolant grates
     for (let s = 0; s < 4; s++) {
       const sMat = new THREE.SpriteMaterial({
         map: padSteamTex,
         transparent: true,
-        opacity: 0.35,
+        opacity: 0.38,
         depthWrite: false
       });
       const sp = new THREE.Sprite(sMat);
       sp.position.set(bx * 0.88, 0.25 + s * 0.45, bz * 0.88);
-      sp.scale.setScalar(1.2 + s * 0.4);
+      sp.scale.setScalar(1.3 + s * 0.45);
       pad.add(sp);
       planet.padSteamPuffs.push({
         sprite: sp,
@@ -246,15 +438,16 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
   planet.add(pad);
   planet.pad = pad;
 
-  // ---------- Online 3D NASA Outpost Models & Orbital ISS ----------
-  // 1. NASA Apollo Lunar Module (.glb) parked near the landing pad
+  // ==========================================================================
+  // 5. ONLINE 3D NASA OUTPOST MODELS & ORBITAL ISS
+  // ==========================================================================
   sharedGLTFLoader.load(
     "./assets/models/lunar_lander.glb",
     (gltf) => {
-      const lander = fitModelToHeight(gltf.scene, 4.4);
-      const lx = 10.2;
-      const lz = -6.4;
-      lander.position.set(lx, getSurfaceY(radius, lx, lz) - 0.1, lz);
+      const lander = fitModelToHeight(gltf.scene, 4.8);
+      const lx = 12.5;
+      const lz = -8.0;
+      lander.position.set(lx, getSurfaceY(radius, lx, lz) - 0.08, lz);
       lander.rotation.y = -0.6;
       planet.add(lander);
     },
@@ -262,14 +455,13 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
     () => {}
   );
 
-  // 2. NASA Planetary Habitat Base (.glb)
   sharedGLTFLoader.load(
     "./assets/models/habitat_base.glb",
     (gltf) => {
-      const hab = fitModelToHeight(gltf.scene, 5.2);
-      const hx = -11.5;
-      const hz = -7.8;
-      hab.position.set(hx, getSurfaceY(radius, hx, hz) - 0.15, hz);
+      const hab = fitModelToHeight(gltf.scene, 5.8);
+      const hx = -14.0;
+      const hz = -9.5;
+      hab.position.set(hx, getSurfaceY(radius, hx, hz) - 0.1, hz);
       hab.rotation.y = 0.75;
       planet.add(hab);
     },
@@ -277,13 +469,12 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
     () => {}
   );
 
-  // 3. NASA EVA Astronaut (.glb) near the landing pad
   sharedGLTFLoader.load(
     "./assets/models/astronaut.glb",
     (gltf) => {
-      const astro = fitModelToHeight(gltf.scene, 1.85);
-      const ax = 5.4;
-      const az = 3.6;
+      const astro = fitModelToHeight(gltf.scene, 1.9);
+      const ax = 6.6;
+      const az = 4.5;
       astro.position.set(ax, getSurfaceY(radius, ax, az), az);
       astro.rotation.y = -2.2;
       planet.add(astro);
@@ -292,12 +483,11 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
     () => {}
   );
 
-  // 4. NASA International Space Station (.glb) in low planetary orbit
   sharedGLTFLoader.load(
     "./assets/models/iss.glb",
     (gltf) => {
-      const iss = fitModelToHeight(gltf.scene, 18.0);
-      iss.position.set(22, radius + 34, -36);
+      const iss = fitModelToHeight(gltf.scene, 28.0);
+      iss.position.set(36, radius + 68, -62);
       iss.rotation.set(0.18, 0.6, -0.12);
       planet.add(iss);
       planet.issOrbitModel = iss;
@@ -306,7 +496,9 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
     () => {}
   );
 
-  // ---------- Alien Crystalline Spires & Boulders around the Landing Zone ----------
+  // ==========================================================================
+  // 6. VAST PLANETARY LANDSCAPE (Mountains, Crystalline Spires & Boulders)
+  // ==========================================================================
   const rockMat = new THREE.MeshStandardMaterial({
     color: new THREE.Color(sys.base[0] * 0.85, sys.base[1] * 0.85, sys.base[2] * 0.85),
     roughness: 0.85,
@@ -315,32 +507,56 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
   const crystalMat = new THREE.MeshStandardMaterial({
     color: sys.atmosHex,
     emissive: sys.atmosHex,
-    emissiveIntensity: 0.35,
+    emissiveIntensity: 0.38,
     roughness: 0.2,
     metalness: 0.5
   });
 
-  for (let i = 0; i < 48; i++) {
-    const dist = 12 + Math.random() * 48;
+  // Near & mid-range spires and boulders (14m to 130m)
+  for (let i = 0; i < 110; i++) {
+    const dist = 14 + Math.random() * 115;
     const ang = Math.random() * Math.PI * 2;
     const rx = Math.cos(ang) * dist;
     const rz = Math.sin(ang) * dist;
     const ry = getSurfaceY(radius, rx, rz);
 
     if (i % 3 === 0) {
-      const h = 1.4 + Math.random() * 3.2;
-      const spire = new THREE.Mesh(new THREE.ConeGeometry(0.45 + Math.random() * 0.4, h, 6), crystalMat);
-      spire.position.set(rx, ry + h * 0.4, rz);
-      spire.rotation.set((Math.random() - 0.5) * 0.25, Math.random() * Math.PI, (Math.random() - 0.5) * 0.25);
+      const h = 1.8 + Math.random() * 5.2;
+      const spire = new THREE.Mesh(
+        new THREE.ConeGeometry(0.55 + Math.random() * 0.7, h, 6),
+        crystalMat
+      );
+      spire.position.set(rx, ry + h * 0.42, rz);
+      spire.rotation.set(
+        (Math.random() - 0.5) * 0.22,
+        Math.random() * Math.PI,
+        (Math.random() - 0.5) * 0.22
+      );
       planet.add(spire);
     } else {
-      const s = 0.8 + Math.random() * 2.2;
+      const s = 1.0 + Math.random() * 3.4;
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 1), rockMat);
       rock.position.set(rx, ry + s * 0.35, rz);
-      rock.scale.set(1.2, 0.65, 1.0);
+      rock.scale.set(1.3, 0.68, 1.05);
       rock.rotation.y = Math.random() * Math.PI;
       planet.add(rock);
     }
+  }
+
+  // Distant colossal mountain peaks along the horizon ring (140m to 260m)
+  for (let m = 0; m < 36; m++) {
+    const dist = 135 + Math.random() * 120;
+    const ang = (m / 36) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+    const mx = Math.cos(ang) * dist;
+    const mz = Math.sin(ang) * dist;
+    const my = getSurfaceY(radius, mx, mz);
+    const mh = 14 + Math.random() * 28;
+    const mw = 12 + Math.random() * 18;
+
+    const peak = new THREE.Mesh(new THREE.ConeGeometry(mw, mh, 7), rockMat);
+    peak.position.set(mx, my + mh * 0.38, mz);
+    peak.rotation.y = Math.random() * Math.PI;
+    planet.add(peak);
   }
 
   // ---------- Animals Container ----------
@@ -352,7 +568,7 @@ export const buildPlanet = (radius = 85, systemIndex = 0) => {
   return planet;
 };
 
-export const spawnAnimals = (planet, count = 28) => {
+export const spawnAnimals = (planet, count = 34) => {
   const { animalRoot, radius, systemInfo } = planet;
   const types = ["grazer", "floater", "skitter", "hopper"];
   const palette = systemInfo ? systemInfo.faunaColors : [0x6ee7b7, 0xfbbf24, 0xc084fc, 0x38bdf8];
@@ -362,13 +578,13 @@ export const spawnAnimals = (planet, count = 28) => {
     const col = palette[i % palette.length];
     const animal = buildAnimal(type, col);
 
-    const dist = 9 + Math.random() * 35;
+    const dist = 10 + Math.random() * 58;
     const ang = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
     const x = Math.cos(ang) * dist;
     const z = Math.sin(ang) * dist;
     const y = getSurfaceY(radius, x, z);
 
-    const floatOffset = type === "floater" ? 2.4 + Math.random() * 2.2 : 0;
+    const floatOffset = type === "floater" ? 2.6 + Math.random() * 2.8 : 0;
     animal.position.set(x, y + floatOffset, z);
 
     const dirAngle = Math.random() * Math.PI * 2;
@@ -388,7 +604,6 @@ export const spawnAnimals = (planet, count = 28) => {
     planet.animals.push(animal);
   }
 
-  // Also load real animated Khronos/Three.js 3D GLB wildlife (Fox, Flamingo, Parrot, Stork)
   const glbWildlife = [
     { url: "./assets/models/fox.glb", scale: 0.022, flying: false, speed: 3.1, count: 3 },
     { url: "./assets/models/flamingo.glb", scale: 0.022, flying: true, speed: 4.5, count: 2 },
@@ -401,7 +616,6 @@ export const spawnAnimals = (planet, count = 28) => {
       spec.url,
       (gltf) => {
         for (let c = 0; c < spec.count; c++) {
-          // Use first instance directly or clone for simple rigid/mesh hierarchy
           const wrapper = new THREE.Group();
           const modelInstance = c === 0 ? gltf.scene : gltf.scene.clone(true);
           modelInstance.scale.setScalar(spec.scale);
@@ -415,11 +629,11 @@ export const spawnAnimals = (planet, count = 28) => {
             planet.glbMixers.push(mixer);
           }
 
-          const dist = 10 + Math.random() * 26;
+          const dist = 11 + Math.random() * 40;
           const ang = Math.random() * Math.PI * 2;
           const x = Math.cos(ang) * dist;
           const z = Math.sin(ang) * dist;
-          const floatOffset = spec.flying ? 3.8 + Math.random() * 2.5 : 0;
+          const floatOffset = spec.flying ? 4.0 + Math.random() * 3.0 : 0;
           const y = getSurfaceY(radius, x, z) + floatOffset;
 
           wrapper.position.set(x, y, z);
@@ -574,7 +788,12 @@ const buildAnimal = (type, colorHex) => {
 
 export const updateAnimals = (planet, dt) => {
   if (!planet) return;
-  const radius = planet.radius || 85;
+  const radius = planet.radius || PLANET_RADIUS;
+
+  // Slowly rotate the planetary cloud deck
+  if (planet.cloudMesh) {
+    planet.cloudMesh.rotation.y += dt * 0.008;
+  }
 
   // Update GLB skeletal animation mixers
   if (planet.glbMixers) {
@@ -615,9 +834,9 @@ export const updateAnimals = (planet, dt) => {
     a.position.z += vz * dt;
 
     const distFromPad = Math.hypot(a.position.x, a.position.z);
-    if (distFromPad > 46) {
+    if (distFromPad > 72) {
       ud.heading = Math.atan2(-a.position.x, -a.position.z) + (Math.random() - 0.5) * 0.5;
-    } else if (distFromPad < 7.5) {
+    } else if (distFromPad < 8.5) {
       ud.heading = Math.atan2(a.position.x, a.position.z) + (Math.random() - 0.5) * 0.4;
     }
 
