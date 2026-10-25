@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STELLAR VOYAGE — A Space Odyssey</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- ================= MAIN MENU ================= -->
+  <div id="menu" class="overlay">
+    <div class="menu-panel">
+      <div class="logo">STELLAR<br><span class="sub">VOYAGE // AEGIS VANGUARD</span></div>
+      <div class="menu-buttons">
+        <button class="btn" id="btn-start" data-audio="click">Start New Game</button>
+        <button class="btn" id="btn-continue" data-audio="click">Continue</button>
+        <button class="btn" id="btn-load" data-audio="click">Load Game</button>
+        <button class="btn" id="btn-credits" data-audio="click">Credits</button>
+      </div>
+      <div class="menu-hint">
+        <b>WASD</b>: Fly / Walk &bull; <b>Mouse</b>: Look &bull; <b>I</b>: Walk Around Inside Ship<br>
+        <b>L</b>: Animated Planetary Landing / Takeoff &bull; <b>TAB</b>: Walk on Planet &bull; <b>SPACE</b>: Warp Cutscene
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CREDITS ================= -->
+  <div id="credits" class="overlay hidden">
+    <div class="menu-panel credits-panel">
+      <div class="logo">CREDITS</div>
+      <div class="credits-list">
+        <div class="credit-row"><span class="role">Game Design &amp; Code</span><span class="name">Arena Agent (Open-Source-Websites-)</span></div>
+        <div class="credit-row"><span class="role">3D Engine &amp; Post-FX</span><span class="name">Three.js r164 + UnrealBloom HDR + IBL</span></div>
+        <div class="credit-row"><span class="role">Starship &amp; Interior</span><span class="name">Aegis Vanguard Corvette (Walkable 3-Bay Deck)</span></div>
+        <div class="credit-row"><span class="role">Audio Synthesizer</span><span class="name">Procedural Convolver Reverb + Analog Synth</span></div>
+        <div class="credit-row"><span class="role">Cutscenes &amp; Fauna</span><span class="name">Multi-Shot Warp, Hydraulic Landing &amp; Alien AI</span></div>
+        <div class="credit-row role-only">Thank you for playing Stellar Voyage.</div>
+      </div>
+      <div class="menu-buttons credits-buttons">
+        <button class="btn" id="btn-back-menu" data-audio="click">Back to Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-bar">
+      <div class="hud-label">QUANTUM HYPERDRIVE CORE</div>
+      <div class="hud-meter">
+        <div id="warp-meter-fill" class="meter-fill"></div>
+      </div>
+      <div id="warp-status" class="hud-status">HOLD SPACE TO CHARGE WARP</div>
+    </div>
+
+    <div class="hud-actions">
+      <button class="hud-btn" id="hud-btn-warp" title="Engage Quantum Warp Cutscene (SPACE)">⚡ Warp (SPACE)</button>
+      <button class="hud-btn" id="hud-btn-land" title="Animated Planetary Landing / Liftoff (L)">🛬 Land / Liftoff (L)</button>
+      <button class="hud-btn" id="hud-btn-ship-walk" title="Unstrap &amp; Walk Around Inside Your Ship (I)">🚶 Walk In Ship (I)</button>
+      <button class="hud-btn" id="hud-btn-foot" title="Walk on Planet Surface Among Alien Animals (TAB)">🪐 Planet Walk (TAB)</button>
+      <button class="hud-btn" id="hud-btn-cam" title="Cycle Flight Camera (C)">🎥 Camera (C)</button>
+      <button class="hud-btn" id="hud-btn-menu" title="Pause Menu (ESC)">☰ Menu</button>
+    </div>
+
+    <!-- Interactive Contextual Prompt (Pilot Seat / Holo-Table / Airlock / Boarding Ramp) -->
+    <div id="hud-interact" class="hud-interact hidden">[E] INTERACT</div>
+
+    <div class="hud-telemetry">
+      <div class="hud-row">
+        <div class="hud-label">VELOCITY</div>
+        <div id="hud-speed" class="hud-value">0</div>
+        <div class="hud-unit">km/s</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-label">MODE</div>
+        <div id="hud-cam" class="hud-value">COCKPIT</div>
+        <div class="hud-unit" id="hud-flight-state">IN ORBIT</div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-label">STAR SYSTEM</div>
+        <div id="hud-system" class="hud-value">KEPLER-442b</div>
+        <div class="hud-unit" id="hud-biome">VERDANT XENO-PLAINS</div>
+      </div>
+    </div>
+
+    <div class="hud-crosshair"></div>
+    <div class="hud-help" id="hud-help">
+      <b>I</b>: Walk Inside Ship &bull; <b>L</b>: Animated Landing/Liftoff &bull; <b>TAB</b>: Walk on Planet &bull; <b>C</b>: Camera &bull; Hold <b>SPACE</b>: Warp Cutscene
+    </div>
+  </div>
+
+  <!-- ================= CINEMATIC CUTSCENE LETTERBOX OVERLAY ================= -->
+  <div id="warp-overlay" class="warp-overlay hidden">
+    <div class="letterbox-bar top-bar">
+      <div id="warp-text" class="warp-text">ENGAGING WARP DRIVE</div>
+      <div id="warp-subtext" class="warp-subtext">QUANTUM FOLD TELEMETRY ONLINE</div>
+    </div>
+    <div class="letterbox-bar bottom-bar">
+      <div class="cutscene-skip">CINEMATIC SEQUENCE ACTIVE &bull; PRESS <b>ENTER</b> TO SKIP</div>
+    </div>
+  </div>
+
+  <script type="module" src="js/core.js"></script>
+</body>
+</html>
