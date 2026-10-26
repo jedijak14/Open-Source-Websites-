@@ -123,18 +123,29 @@ by this site — that is YouTube's player and its terms. Only YouTube Premium re
 
 ## Deploying to Vercel
 
-The site is static, so no build step is required at the edge. `vercel.json` sets clean URLs, long
-cache lifetimes for assets, and the security headers above.
+Live at **https://opentube-two.vercel.app** (project `opentube`, root directory `sites/youtube`).
+
+The site is plain files, so nothing is compiled at the edge. `vercel.json` declares
+`@vercel/static` builds for `**/*.html` and `assets/**`, maps `/` and the extension-less page
+names to their files, and adds the security headers listed above:
+
+- `@vercel/static` is used instead of framework detection on purpose. Vercel auto-detected a
+  Node app from the sibling `package.json` and looked for a server entrypoint, which produced an
+  empty deployment. Declaring the builds (and naming the local server `dev-server.mjs` rather
+  than `server.mjs`) keeps the deployment purely static.
+- Legacy `builds` supersede the project's Build Command, so the builders are ignored at deploy
+  time. Run `npm run build` (or open `dev-server.mjs`, which rebuilds on start) before pushing.
 
 ```bash
-# project root: sites/youtube
-vercel --prod
+cd sites/youtube
+npm run build          # regenerate the 7 pages from src/
+npx vercel --prod      # or let the git push deploy
 ```
 
-Set the project's **Root Directory** to `sites/youtube` and leave the framework preset as
-*Other*. For Google sign-in, add the deployment's origin (e.g.
-`https://opentube.vercel.app`) to the OAuth client's authorised JavaScript origins, and add it to
-the API key's HTTP-referrer restrictions.
+For Google sign-in, add the deployment origin — `https://opentube-two.vercel.app` — to the OAuth
+client's **Authorised JavaScript origins**, and add it to the API key's HTTP-referrer
+restrictions. Without that, the key or the consent screen will reject browser requests from the
+deployed site.
 
 ## Project layout
 
