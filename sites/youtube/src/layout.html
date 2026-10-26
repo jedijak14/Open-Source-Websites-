@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <meta name="description" content="{{description}}">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <script>
+    // Resolve the theme before first paint so there is no flash of the wrong palette.
+    (function () {
+      try {
+        var saved = JSON.parse(localStorage.getItem('opentube:v1') || '{}').theme;
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme = saved || (dark ? 'dark' : 'light');
+      } catch (err) { /* first visit or storage blocked */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <meta property="og:title" content="{{title}}">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:type" content="website">
+</head>
+<body data-page="{{page}}">
+  <!-- include: icons -->
+  <a class="skip-link" href="#content">Skip to content</a>
+
+  <!-- include: header -->
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
+
+  <div class="shell">
+    <aside class="sidebar" id="sidebar" aria-label="Site navigation"></aside>
+    <main class="main" id="content">
+      <noscript>
+        <div class="noscript-note">
+          <strong>OpenTube needs JavaScript.</strong> The catalogue is rendered in the browser from
+          <code>assets/data.js</code>, so the feed, player and search are empty until scripts are enabled.
+          Nothing is sent anywhere — all state stays in this browser.
+        </div>
+      </noscript>
+{{content}}
+      <!-- include: footer -->
+    </main>
+  </div>
+
+  <div class="banner-host" id="banners" role="status" aria-live="polite"></div>
+  <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
+
+  <!-- include: menus -->
+  <!-- include: live-modal -->
+
+  <script src="assets/config.js"></script>
+  <script src="assets/youtube-api.js"></script>
+  <script src="assets/auth.js"></script>
+  <script src="assets/live.js"></script>
+  <script src="assets/library-account.js"></script>
+  <script src="assets/data.js"></script>
+  <script src="assets/recommender.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/settings.js"></script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<header class="header">
+  <div class="header__left">
+    <button class="icon-btn" id="menu-btn" type="button" aria-label="Toggle navigation" aria-expanded="false" aria-haspopup="true">
+      <svg class="icon" aria-hidden="true"><use href="#i-menu"></use></svg>
+    </button>
+    <a class="masthead" href="index.html" aria-label="OpenTube home">
+      <svg class="masthead__logo" viewBox="0 0 40 40" aria-hidden="true">
+        <defs>
+          <linearGradient id="mark-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ff5470"/>
+            <stop offset="1" stop-color="#d81b60"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="4" width="36" height="32" rx="11" fill="url(#mark-g)"/>
+        <path d="M16.5 13.6c0-1 1.1-1.6 2-1.1l11 6.4c.9.5.9 1.8 0 2.3l-11 6.4c-.9.5-2-.1-2-1.1V13.6Z" fill="#fff"/>
+        <circle cx="11" cy="30" r="2.2" fill="#fff" fill-opacity=".9"/>
+      </svg>
+      <span class="masthead__word"><span>open</span><em>tube</em></span>
+      <span class="masthead__sup">BETA</span>
+      <span class="live-pill" id="live-live-badge" hidden title="Live YouTube data">LIVE</span>
+    </a>
+  </div>
+
+  <div class="header__center">
+    <form class="search" id="search-form" role="search">
+      <label class="sr-only" for="search-input">Search</label>
+      <input class="search__input" id="search-input" name="q" type="search" placeholder="Search videos, channels, topics" autocomplete="off">
+      <button class="search__submit" type="submit" aria-label="Search">
+        <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+      </button>
+    </form>
+    <button class="icon-btn" id="voice-btn" type="button" aria-label="Search with voice"
+      onclick="window.OT && window.OT.toast('Voice search is not part of this demo')">
+      <svg class="icon icon--sm" aria-hidden="true"><use href="#i-mic"></use></svg>
+    </button>
+  </div>
+
+  <div class="header__right">
+    <button class="icon-btn search-mobile-toggle" id="search-toggle" type="button" aria-label="Search">
+      <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+    </button>
+    <button class="icon-btn" id="create-btn" type="button" aria-label="Create" aria-haspopup="menu">
+      <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+    </button>
+    <button class="icon-btn" id="bell-btn" type="button" aria-label="Notifications">
+      <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+      <span class="icon-btn__badge dot-badge">3</span>
+    </button>
+    <button class="avatar-btn" id="avatar-btn" type="button" aria-label="Account" aria-haspopup="menu">Y</button>
+  </div>
+</header>

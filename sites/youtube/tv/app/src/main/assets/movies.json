@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "movies": [
+    {
+      "id": "m-signal",
+      "title": "The Signal From Room 12",
+      "channel": "analog",
+      "channelName": "Analog Autopsy",
+      "year": 2024,
+      "runtime": "1h 48m",
+      "rating": "PG-13",
+      "poster": "assets/thumbs/deep-sea.jpg",
+      "price": "rent 3.99",
+      "kind": "movie",
+      "freeWithAds": false,
+      "desc": "A repair technician starts receiving transmissions from a room that was demolished in 1974."
+    },
+    {
+      "id": "m-street",
+      "title": "Streetlight Hours",
+      "channel": "wander",
+      "channelName": "Wander Lines",
+      "year": 2023,
+      "runtime": "1h 32m",
+      "rating": "PG",
+      "poster": "assets/thumbs/kyoto-dusk.jpg",
+      "price": "rent 2.99",
+      "kind": "movie",
+      "freeWithAds": false,
+      "desc": "Two strangers walk the same route through a city that keeps rearranging itself overnight."
+    },
+    {
+      "id": "m-amber",
+      "title": "Amber Frequency",
+      "channel": "analog",
+      "channelName": "Analog Autopsy",
+      "year": 2022,
+      "runtime": "58m",
+      "rating": "G",
+      "poster": "assets/thumbs/synth-restore.jpg",
+      "price": "free with ads",
+      "kind": "movie",
+      "freeWithAds": true,
+      "clip": "assets/video/amber.mp4",
+      "desc": "A restoration bench, one stubborn capacitor and ninety minutes of tape hiss. Free to watch."
+    },
+    {
+      "id": "m-teal",
+      "title": "Teal Hours",
+      "channel": "wander",
+      "channelName": "Wander Lines",
+      "year": 2025,
+      "runtime": "1h 04m",
+      "rating": "G",
+      "poster": "assets/thumbs/lofi-room.jpg",
+      "price": "free with ads",
+      "kind": "movie",
+      "freeWithAds": true,
+      "clip": "assets/video/teal.mp4",
+      "desc": "A slow, wordless walk through a harbour town at the hour when everything turns the same colour."
+    }
+  ]
+}

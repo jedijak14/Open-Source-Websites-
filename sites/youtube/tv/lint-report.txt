@@ -1,0 +1,186 @@
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/Api.java:75: Warning: Implicitly using the default locale is a common source of bugs: Use toLowerCase(Locale) instead. For strings meant to be internal use Locale.ROOT, otherwise Locale.getDefault(). [DefaultLocale]
+        String lower = reason.toLowerCase();
+                              ~~~~~~~~~~~
+
+   Explanation for issues of type "DefaultLocale":
+   Calling String#toLowerCase() or #toUpperCase() without specifying an
+   explicit locale is a common source of bugs. The reason for that is that
+   those methods will use the current locale on the user's device, and even
+   though the code appears to work correctly when you are developing the app,
+   it will fail in some locales. For example, in the Turkish locale, the
+   uppercase replacement for i is not I.
+
+   If you want the methods to just perform ASCII replacement, for example to
+   convert an enum name, call String#toUpperCase(Locale.ROOT) instead. If you
+   really want to use the current locale, call
+   String#toUpperCase(Locale.getDefault()) instead.
+
+   https://developer.android.com/reference/java/util/Locale.html#default_locale
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/build.gradle:17: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk 34
+        ~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application runs on a version of Android that is more recent than
+   your targetSdkVersion specifies that it has been tested with, various
+   compatibility modes kick in. This ensures that your application continues
+   to work, but it may look out of place. For example, if the targetSdkVersion
+   is less than 14, your app may get an option button in the UI.
+
+   To fix this issue, set the targetSdkVersion to the highest available value.
+   Then test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/AndroidManifest.xml:27: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape">
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/AndroidManifest.xml:38: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/AndroidManifest.xml:44: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/AndroidManifest.xml:51: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/AndroidManifest.xml:57: Warning: Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed. [DiscouragedApi]
+            android:screenOrientation="landscape" />
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "DiscouragedApi":
+   Discouraged APIs are allowed and are not deprecated, but they may be unfit
+   for common use (e.g. due to slow performance or subtle behavior).
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/WebPlayerActivity.java:41: Warning: Using setJavaScriptEnabled can introduce XSS vulnerabilities into your application, review carefully [SetJavaScriptEnabled]
+        settings.setJavaScriptEnabled(true);
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetJavaScriptEnabled":
+   Your code should not invoke setJavaScriptEnabled if you are not sure that
+   your app really requires JavaScript support.
+
+   https://goo.gle/SetJavaScriptEnabled
+   https://developer.android.com/training/articles/security-tips
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/colors.xml:4: Warning: The resource R.color.bg_alt appears to be unused [UnusedResources]
+    <color name="bg_alt">#FF101A24</color>
+           ~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/colors.xml:5: Warning: The resource R.color.surface appears to be unused [UnusedResources]
+    <color name="surface">#FF16212C</color>
+           ~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/colors.xml:6: Warning: The resource R.color.surface_hi appears to be unused [UnusedResources]
+    <color name="surface_hi">#FF1E2C39</color>
+           ~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/colors.xml:10: Warning: The resource R.color.accent_warm appears to be unused [UnusedResources]
+    <color name="accent_warm">#FFFF6B5C</color>
+           ~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/colors.xml:11: Warning: The resource R.color.focus appears to be unused [UnusedResources]
+    <color name="focus">#FFFFFFFF</color>
+           ~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/strings.xml:8: Warning: The resource R.string.no_network appears to be unused [UnusedResources]
+    <string name="no_network">No connection. Showing what OpenTube has on the device.</string>
+            ~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/styles.xml:18: Warning: The resource R.style.SectionTitle appears to be unused [UnusedResources]
+    <style name="SectionTitle">
+           ~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res/values/styles.xml:25: Warning: The resource R.style.BodyText appears to be unused [UnusedResources]
+    <style name="BodyText">
+           ~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests =true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests =true.
+   ,
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/res: Warning: Missing density variation folders in src/main/res: drawable-hdpi, drawable-mdpi [IconMissingDensityFolder]
+
+   Explanation for issues of type "IconMissingDensityFolder":
+   Icons will look best if a custom version is provided for each of the major
+   screen density classes (low, medium, high, extra-high, extra-extra-high).
+   This lint check identifies folders which are missing, such as
+   drawable-hdpi.
+
+   Low density is not really used much anymore, so this check ignores the ldpi
+   density. To force lint to include it, set the environment variable
+   ANDROID_LINT_INCLUDE_LDPI=true. For more information on current density
+   usage, see https://developer.android.com/about/dashboards
+
+   https://developer.android.com/guide/practices/screens_support.html
+
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/ChannelActivity.java:84: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            loading.setText("This channel has no id, so its uploads cannot be listed.");
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/PlayerActivity.java:217: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            hintView.setText("This title has no playable file.");
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/PlayerActivity.java:243: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                hintView.setText("This clip could not be played. Check the connection and try again.");
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/PlayerActivity.java:255: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        clock.setText(Ui.clock(position / 1000) + " / " + Ui.clock(duration / 1000));
+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/PlayerActivity.java:290: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+            hintView.setText("● centre play/pause   ● left/right seek   ● down captions "
+                             ^
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/PlayerActivity.java:290: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+            hintView.setText("● centre play/pause   ● left/right seek   ● down captions "
+                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SearchScreen.java:119: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+        status.setText("Searching " + query + "…");
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SearchScreen.java:119: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+        status.setText("Searching " + query + "…");
+                       ~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SearchScreen.java:157: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                            status.setText(videos.size() + (videos.size() == 1 ? " result" : " results")
+                                           ^
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SearchScreen.java:158: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                                    + " for “" + query + "”" + (fromApi ? " · live from YouTube" : " · from the OpenTube catalogue"));
+                                      ~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SettingsScreen.java:227: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+        message.setText("Asking Google for a code…");
+                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/SettingsScreen.java:234: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                        message.setText("On your phone or computer, open\n\n" + url + "\n\nand enter\n\n"
+                                        ^
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/WebPlayerActivity.java:121: Warning: Do not concatenate text displayed with setText. Use resource string with placeholders. [SetTextI18n]
+                hint.setText("Captions " + (captions ? "on" : "off")
+                             ^
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/WebPlayerActivity.java:121: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                hint.setText("Captions " + (captions ? "on" : "off")
+                             ~~~~~~~~~~~
+/home/runner/work/Open-Source-Websites-/Open-Source-Websites-/sites/youtube/tv/app/src/main/java/dev/opentube/tv/WebPlayerActivity.java:122: Warning: String literal in setText can not be translated. Use Android resources instead. [SetTextI18n]
+                        + "   ● centre play/pause   ● left/right seek   ● down captions");
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+0 errors, 32 warnings

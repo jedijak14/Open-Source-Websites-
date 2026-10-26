@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenTube</string>
+    <string name="movie_locked">Sorry, movies are connected to your Google Account. This movie will become available as soon as you purchase it.</string>
+    <string name="subs_readonly">Subscriptions are read-only on the TV app — subscribe in the YouTube app or on youtube.com and they appear here after a refresh.</string>
+    <string name="quota_fallback">Search is limited right now. Showing results from the OpenTube catalogue instead.</string>
+    <string name="need_key">Add a YouTube API key in Settings to search the live catalogue.</string>
+    <string name="no_network">No connection. Showing what OpenTube has on the device.</string>
+</resources>

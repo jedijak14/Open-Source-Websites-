@@ -1,0 +1,226 @@
+<!--meta {"title":"Settings — OpenTube","description":"Connect your YouTube API key and Google account, import your watch history, and review the no-ads, no-trackers guarantees.","page":"settings"}-->
+<div class="settings">
+  <header class="settings__head">
+    <h1>Settings</h1>
+    <p>Everything here is stored in this browser. OpenTube has no server-side accounts,
+      no analytics and no advertising.</p>
+  </header>
+
+  <div class="settings__layout">
+    <nav class="settings__nav" aria-label="Settings sections">
+      <a href="#api-key">API key</a>
+      <a href="#account">Google account</a>
+      <a href="#history">Watch history</a>
+      <a href="#live">Live data</a>
+      <a href="#algorithm">Recommendations</a>
+      <a href="#ads">Ads &amp; tracking</a>
+      <a href="#data">Your data</a>
+    </nav>
+
+    <div class="settings__sections">
+      <!-- ---------------------------------------------------------- API key -->
+      <section class="panel" id="api-key" aria-labelledby="api-key-h">
+        <h2 id="api-key-h">YouTube Data API key</h2>
+        <p class="panel__lede">
+          Powers the live feed, search and channel pages. Paste the key you created in
+          Google Cloud Console with <strong>YouTube Data API v3</strong> enabled.
+        </p>
+
+        <label class="field__label" for="settings-key">API key</label>
+        <div class="field__row">
+          <input class="field__input field__input--mono" id="settings-key" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="AIza…">
+          <button class="btn-pill btn-pill--brand" id="settings-key-save" type="button">Save &amp; test</button>
+          <button class="btn-pill" id="settings-key-clear" type="button">Clear</button>
+        </div>
+        <p class="field__hint">
+          Restrict the key to <em>HTTP referrers</em> for this site and <code>localhost</code>, and to
+          the YouTube Data API v3 only. Full link:
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud credentials</a>.
+        </p>
+        <p class="status" id="settings-key-status" hidden></p>
+      </section>
+
+      <!-- ---------------------------------------------------------- account -->
+      <section class="panel" id="account" aria-labelledby="account-h">
+        <h2 id="account-h">Google account</h2>
+        <p class="panel__lede">
+          Signing in grants <strong>read-only</strong> YouTube access
+          (<code>youtube.readonly</code>): your channel, subscriptions, liked videos and playlists.
+          A short-lived access token stays in this browser tab and is only sent to
+          <code>googleapis.com</code>.
+        </p>
+
+        <div class="account-card" id="account-card">
+          <div class="account-card__empty" id="account-signed-out">
+            <div class="account-card__avatar" aria-hidden="true">?</div>
+            <div>
+              <strong>Not connected</strong>
+              <div class="account-card__meta" id="account-hint">Sign in to load your subscriptions and liked videos.</div>
+            </div>
+          </div>
+          <div class="account-card__profile" id="account-signed-in" hidden>
+            <img class="account-card__avatar" id="account-avatar" alt="" width="48" height="48">
+            <span class="account-card__avatar avatar-fallback" id="account-initial" hidden aria-hidden="true"></span>
+            <div>
+              <strong id="account-name">—</strong>
+              <div class="account-card__meta" id="account-meta"></div>
+            </div>
+            <button class="btn-pill" id="account-signout" type="button">Sign out</button>
+          </div>
+        </div>
+
+        <p class="panel__note" id="account-deployment" hidden>
+          <strong>Sign-in is ready on this deployment.</strong>
+          The Google client ID is supplied by the build, so there is nothing to paste —
+          press <em>Sign in with Google</em>.
+        </p>
+
+        <div id="client-manual">
+        <label class="field__label" for="settings-client-id">OAuth client ID</label>
+        <div class="field__row">
+          <input class="field__input field__input--mono" id="settings-client-id" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="1234-abc.apps.googleusercontent.com">
+          <button class="btn-pill" id="settings-client-save" type="button">Save</button>
+        </div>
+        <ol class="panel__steps">
+          <li>In Google Cloud Console, configure the <em>OAuth consent screen</em> (External is fine) and add the scope <code>…/auth/youtube.readonly</code>.</li>
+          <li>Create an <em>OAuth client ID</em> of type <strong>Web application</strong>.</li>
+          <li>Add <code id="client-origin">this origin</code> under <strong>Authorised JavaScript origins</strong>.</li>
+          <li>Paste the client ID above, save, then sign in. No client secret is needed or stored.</li>
+        </ol>
+        </div>
+        <div class="field__row">
+          <button class="btn-pill btn-pill--solid" id="account-signin" type="button">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-user"></use></svg>
+            Sign in with Google
+          </button>
+          <button class="btn-pill" id="account-refresh" type="button" hidden>Refresh account data</button>
+        </div>
+        <p class="status" id="settings-account-status" hidden></p>
+      </section>
+
+      <!-- ---------------------------------------------------------- history -->
+      <section class="panel" id="history" aria-labelledby="history-h">
+        <h2 id="history-h">YouTube watch history</h2>
+        <p class="panel__lede">
+          <strong>Google does not expose watch history through the YouTube Data API</strong> — no
+          key or OAuth scope can read it. The only supported route is your own
+          <a href="https://takeout.google.com/" target="_blank" rel="noopener">Google Takeout</a>
+          export, which OpenTube can import here.
+        </p>
+        <ol class="panel__steps">
+          <li>Open <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a>, deselect everything, tick <strong>YouTube and YouTube Music</strong>.</li>
+          <li>Choose <em>JSON</em> format, then export. Ads and non-video entries are filtered out on import.</li>
+          <li>Unzip and pick <code>watch-history.json</code> (the HTML export also works).</li>
+        </ol>
+        <div class="field__row">
+          <label class="btn-pill btn-pill--solid" for="settings-history-file" style="cursor:pointer">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-upload"></use></svg>
+            Choose export file
+          </label>
+          <input id="settings-history-file" type="file" accept=".json,.html,application/json,text/html" hidden>
+          <button class="btn-pill" id="settings-history-clear" type="button" hidden>Remove imported history</button>
+        </div>
+        <p class="status" id="settings-history-status" hidden></p>
+        <p class="field__hint" id="settings-history-summary"></p>
+      </section>
+
+      <!-- ------------------------------------------------------------- live -->
+      <section class="panel" id="live" aria-labelledby="live-h">
+        <h2 id="live-h">Live data</h2>
+        <div class="setting-row">
+          <div>
+            <strong>Use live YouTube data</strong>
+            <div class="setting-row__hint">Off renders the bundled offline demo dataset.</div>
+          </div>
+          <button class="switch" id="settings-live-toggle" type="button" role="switch" aria-checked="false" aria-label="Use live YouTube data"></button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <strong>Trending region</strong>
+            <div class="setting-row__hint">Used by the feed and the “up next” rail.</div>
+          </div>
+          <select class="field__input" id="settings-region" style="max-width:200px">
+            <option value="US">United States</option>
+            <option value="GB">United Kingdom</option>
+            <option value="DE">Germany</option>
+            <option value="JP">Japan</option>
+            <option value="KR">South Korea</option>
+            <option value="IN">India</option>
+            <option value="BR">Brazil</option>
+            <option value="AU">Australia</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <div>
+            <strong>Appearance</strong>
+            <div class="setting-row__hint">Follows your system until you choose.</div>
+          </div>
+          <button class="btn-pill" id="settings-theme" type="button">Light</button>
+        </div>
+        <p class="field__hint">
+          Quota: trending and channel pages cost 1 unit, a search costs 100. The free allowance is
+          10,000 units per day; responses are cached for 10 minutes per session.
+        </p>
+      </section>
+
+      <!-- -------------------------------------------------------- algorithm -->
+      <section class="panel" id="algorithm" aria-labelledby="algorithm-h">
+        <h2 id="algorithm-h">Recommendations</h2>
+        <p class="panel__lede">
+          The feed is ranked by a model this site builds itself, on this device, from what you
+          actually watch — how much of it, likes, saves and subscriptions — plus any imported watch
+          history and the Google account you connect. YouTube does not give apps your watch history,
+          so this is the only way the algorithm can learn from it.
+        </p>
+
+        <div class="rec-summary" id="rec-summary"></div>
+        <div class="rec-columns" id="rec-lists"></div>
+
+        <div class="field__row">
+          <button class="btn-pill btn-pill--brand" id="rec-sync" type="button">Sync with my account</button>
+          <button class="btn-pill" id="rec-reset" type="button">Reset what it learned</button>
+        </div>
+        <p class="status" id="settings-rec-status" hidden></p>
+
+        <p class="panel__note">
+          The model is stored per account: signing in with a YouTube account keeps that account's
+          taste (its subscriptions and liked videos are folded in), and signing out returns to the
+          anonymous one. It never leaves the browser — there is no server to send it to, and the
+          read-only scope means nothing is ever written back to YouTube.
+        </p>
+      </section>
+
+      <!-- -------------------------------------------------------------- ads -->
+      <section class="panel" id="ads" aria-labelledby="ads-h">
+        <h2 id="ads-h">Ads &amp; tracking</h2>
+        <ul class="guarantee">
+          <li><strong>No ad slots.</strong> Nothing on this site renders or reserves space for advertising; there are no ad SDKs, pixels or beacons.</li>
+          <li><strong>No analytics or trackers.</strong> No Google Analytics, no session recording, no third-party fonts or CDNs. Every request is served from this origin.</li>
+          <li><strong>No cookies for advertising.</strong> OpenTube sets no cookies at all; preferences live in <code>localStorage</code> and the OAuth token in <code>sessionStorage</code>.</li>
+          <li><strong>Privacy-preserving playback.</strong> Embeds use <code>youtube-nocookie.com</code> with <code>rel=0</code> and <code>modestbranding=1</code>.</li>
+          <li><strong>Strict Content-Security-Policy.</strong> The deployed host sends a CSP that only allows this origin plus <code>googleapis.com</code>, <code>accounts.google.com</code> and the YouTube embed frame — so an injected ad script could not load.</li>
+        </ul>
+        <p class="panel__note">
+          One honest exception: ads that YouTube itself plays <em>inside its embedded player</em>
+          cannot be removed by this site — that is YouTube's player and its monetisation, and
+          stripping it would breach their terms. Only YouTube Premium removes those. OpenTube
+          never adds advertising of its own.
+        </p>
+        <p class="panel__note" id="ads-audit"></p>
+      </section>
+
+      <!-- ------------------------------------------------------------- data -->
+      <section class="panel" id="data" aria-labelledby="data-h">
+        <h2 id="data-h">Your data</h2>
+        <p class="panel__lede">These actions only affect this browser.</p>
+        <div class="field__row">
+          <button class="btn-pill" id="settings-clear-keys" type="button">Forget API key &amp; client ID</button>
+          <button class="btn-pill" id="settings-clear-all" type="button">Clear everything (keeps demo data)</button>
+        </div>
+        <p class="status" id="settings-data-status" hidden></p>
+      </section>
+    </div>
+  </div>
+</div>

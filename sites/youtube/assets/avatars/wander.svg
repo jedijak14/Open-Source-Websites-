@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="wander">
+  <defs>
+    <linearGradient id="g" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#0e6b6b"/>
+      <stop offset="100%" stop-color="#39d0c0"/>
+    </linearGradient>
+    <radialGradient id="h" cx="30%" cy="22%" r="72%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity=".34"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="80" cy="80" r="80" fill="url(#g)"/>
+  <circle cx="80" cy="80" r="80" fill="url(#h)"/>
+  <text x="80" y="80" fill="#fff" font-family="Roboto, Arial, Helvetica, sans-serif"
+        font-size="58" font-weight="700" letter-spacing="1"
+        text-anchor="middle" dominant-baseline="central">WF</text>
+</svg>
