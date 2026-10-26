@@ -14,8 +14,8 @@ Daemon will be stopped at the end of the build
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:generateDebugBuildConfig
-> Task :app:generateDebugResValues
 > Task :app:checkDebugAarMetadata
+> Task :app:generateDebugResValues
 > Task :app:javaPreCompileDebug
 > Task :app:mapDebugSourceSetPaths
 > Task :app:generateDebugResources
@@ -27,9 +27,9 @@ Daemon will be stopped at the end of the build
 > Task :app:processDebugMainManifest
 > Task :app:processDebugManifest
 > Task :app:mergeDebugShaders
+> Task :app:processDebugManifestForPackage
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:processDebugManifestForPackage
 > Task :app:mergeDebugAssets
 > Task :app:compressDebugAssets
 > Task :app:processDebugResources
@@ -41,15 +41,15 @@ Note: Recompile with -Xlint:deprecation for details.
 
 > Task :app:dexBuilderDebug
 > Task :app:processDebugJavaRes NO-SOURCE
-> Task :app:mergeDebugStartupProfile
-> Task :app:checkDebugDuplicateClasses
 > Task :app:mergeDebugGlobalSynthetics
-> Task :app:mergeDebugJniLibFolders
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeDebugStartupProfile
 > Task :app:mergeExtDexDebug
+> Task :app:mergeDebugJniLibFolders
 > Task :app:mergeDebugNativeLibs NO-SOURCE
-> Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:mergeLibDexDebug
 > Task :app:mergeDebugJavaResource
+> Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:mergeProjectDexDebug
 > Task :app:validateSigningDebug
 > Task :app:writeDebugAppMetadata
@@ -57,7 +57,7 @@ Note: Recompile with -Xlint:deprecation for details.
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect
 > Task :app:assembleDebug
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1792976766066.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1792976867759.json
 
-BUILD SUCCESSFUL in 39s
+BUILD SUCCESSFUL in 43s
 34 actionable tasks: 34 executed
