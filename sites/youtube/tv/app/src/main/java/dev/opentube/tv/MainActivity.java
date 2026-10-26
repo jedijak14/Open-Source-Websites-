@@ -103,6 +103,13 @@ public class MainActivity extends Activity {
         return rail;
     }
 
+    /** Rebuilds the current screen, e.g. after a setting was changed. */
+    public void reload() {
+        int index = current;
+        current = -1;
+        show(index);
+    }
+
     public void show(int index) {
         if (index == current) return;
         current = index;
@@ -155,7 +162,7 @@ public class MainActivity extends Activity {
 
     private View findFocusable(View view) {
         if (view == null) return null;
-        if (view.isFocusable() && view.getVisibility() == View.VISIBLE && view instanceof TextView) {
+        if (view.isFocusable() && view.getVisibility() == View.VISIBLE) {
             return view;
         }
         if (view instanceof ViewGroup) {

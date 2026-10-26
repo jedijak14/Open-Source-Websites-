@@ -47,11 +47,20 @@ jobs:
       - name: Build debug APK
         id: build
         continue-on-error: true
+        env:
+          TV_CLIENT_ID: ${{ secrets.OPENTUBE_TV_CLIENT_ID }}
+          TV_CLIENT_SECRET: ${{ secrets.OPENTUBE_TV_CLIENT_SECRET }}
+          TV_API_KEY: ${{ secrets.OPENTUBE_YOUTUBE_API_KEY }}
         run: |
           set +e
           cd sites/youtube/tv
           echo "sdk.dir=${ANDROID_SDK_ROOT:-$ANDROID_HOME}" > local.properties
-          gradle :app:assembleDebug --no-daemon --console=plain --stacktrace > build-log.txt 2>&1
+          # Optional: bake a TV OAuth client and API key in from repository secrets.
+          EXTRA=""
+          if [ -n "$TV_CLIENT_ID" ]; then EXTRA="$EXTRA -PopentubeClientId=$TV_CLIENT_ID"; fi
+          if [ -n "$TV_CLIENT_SECRET" ]; then EXTRA="$EXTRA -PopentubeClientSecret=$TV_CLIENT_SECRET"; fi
+          if [ -n "$TV_API_KEY" ]; then EXTRA="$EXTRA -PopentubeApiKey=$TV_API_KEY"; fi
+          gradle :app:assembleDebug --no-daemon --console=plain --stacktrace $EXTRA > build-log.txt 2>&1
           status=$?
           echo "---- build log tail ----"
           tail -n 120 build-log.txt

@@ -53,7 +53,7 @@ final class SettingsScreen {
                         public void onClick(View view) {
                             app.account.signOut();
                             app.onAccountChanged();
-                            activity.show(MainActivity.SETTINGS);
+                            activity.reload();
                         }
                     }));
         }
@@ -66,7 +66,7 @@ final class SettingsScreen {
                             @Override
                             public void accept(String value) {
                                 prefs.setClient(value, prefs.clientSecret());
-                                activity.show(MainActivity.SETTINGS);
+                                activity.reload();
                             }
                         });
                     }
@@ -80,7 +80,7 @@ final class SettingsScreen {
                             @Override
                             public void accept(String value) {
                                 prefs.setClient(prefs.clientId(), value);
-                                activity.show(MainActivity.SETTINGS);
+                                activity.reload();
                             }
                         });
                     }
@@ -101,7 +101,7 @@ final class SettingsScreen {
                             @Override
                             public void accept(String value) {
                                 prefs.setApiKey(value);
-                                activity.show(MainActivity.SETTINGS);
+                                activity.reload();
                             }
                         });
                     }
@@ -114,7 +114,7 @@ final class SettingsScreen {
                             @Override
                             public void accept(String value) {
                                 prefs.setBaseUrl(value);
-                                activity.show(MainActivity.SETTINGS);
+                                activity.reload();
                             }
                         });
                     }
@@ -126,7 +126,7 @@ final class SettingsScreen {
                     @Override
                     public void onClick(View view) {
                         prefs.setCaptionsOn(!prefs.captionsOn());
-                        activity.show(MainActivity.SETTINGS);
+                        activity.reload();
                     }
                 }));
 
@@ -273,7 +273,7 @@ final class SettingsScreen {
                     @Override
                     public void run() {
                         progress.dismiss();
-                        activity.show(MainActivity.SETTINGS);
+                        activity.reload();
                     }
                 });
             }
