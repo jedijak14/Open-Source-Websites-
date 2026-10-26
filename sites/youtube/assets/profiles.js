@@ -643,16 +643,8 @@
     updateHeaderAvatar();
     setupEventListeners();
     
-    // Check if we already have an active profile
-    const activeProfile = getActiveProfile();
-    if (activeProfile) {
-      // Profile already selected, mark body
-      document.body.classList.add('profile-selected');
-      document.body.classList.remove('profile-picker-shown');
-    } else {
-      // No profile selected yet, show picker
-      checkShowProfilePicker();
-    }
+    // Always check if we should show profile picker on init
+    checkShowProfilePicker();
   }
 
   /**
@@ -660,26 +652,19 @@
    * For Netflix-style experience, show picker on first load.
    */
   function checkShowProfilePicker() {
-    const accountId = getAccountId();
     const activeProfile = getActiveProfile();
     
-    // If we have an active profile and it's valid, mark body and don't show picker
+    // If we have an active profile, don't show picker
     if (activeProfile) {
-      document.body.classList.add('profile-selected');
       document.body.classList.remove('profile-picker-shown');
-      const backdrop = document.getElementById('profile-modal-backdrop');
-      if (backdrop) {
-        backdrop.style.display = 'none';
-      }
       return;
     }
     
-    // For all other cases (new visitor, not signed in, no profile), show picker
+    // For new visitors or no active profile, show picker
     setTimeout(() => {
       const container = document.getElementById('profile-modals-container');
       if (container) {
         container.innerHTML = renderProfilePicker();
-        container.style.display = 'block';
         document.body.classList.add('profile-picker-shown');
       }
     }, 100);
@@ -692,8 +677,6 @@
     const container = document.createElement('div');
     container.id = 'profile-modals-container';
     document.body.appendChild(container);
-    
-    container.innerHTML = renderProfilePicker();
   }
 
   function updateHeaderAvatar() {
