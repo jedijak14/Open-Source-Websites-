@@ -120,17 +120,23 @@ final class HomeScreen {
     }
 
     static View videoCard(final MainActivity activity, final Catalog.Video video) {
-        String meta = (video.durationLabel == null || video.durationLabel.isEmpty() ? "" : video.durationLabel + " · ")
-                + Ui.views(video.views) + " · " + video.channelName;
-        String posterUrl = video.live ? video.poster : App.get(activity).catalog.url(video.poster);
-        View card = Ui.card(activity, posterUrl, video.title, meta,
-                video.live ? "YouTube" : "OpenTube", 236, 133);
-        card.setOnClickListener(new View.OnClickListener() {
+        return videoCard(activity, video, new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 activity.openDetail(video);
             }
         });
+    }
+
+    /** The same card for screens that are not the main shell. */
+    static View videoCard(final android.app.Activity activity, final Catalog.Video video,
+                          View.OnClickListener click) {
+        String meta = (video.durationLabel == null || video.durationLabel.isEmpty() ? "" : video.durationLabel + " · ")
+                + Ui.views(video.views) + " · " + video.channelName;
+        String posterUrl = video.live ? video.poster : App.get(activity).catalog.url(video.poster);
+        View card = Ui.card(activity, posterUrl, video.title, meta,
+                video.live ? "YouTube" : "OpenTube", 236, 133);
+        card.setOnClickListener(click);
         return card;
     }
 

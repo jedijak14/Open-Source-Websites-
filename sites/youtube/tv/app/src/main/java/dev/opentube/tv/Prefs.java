@@ -24,7 +24,7 @@ public final class Prefs {
         return sp.getBoolean(key, fallback);
     }
 
-    void flag(String key, boolean value) {
+    void setFlag(String key, boolean value) {
         sp.edit().putBoolean(key, value).apply();
     }
 
@@ -83,7 +83,7 @@ public final class Prefs {
     }
 
     public void setCaptionsOn(boolean on) {
-        flag("captions", on);
+        setFlag("captions", on);
     }
 
     public String token() {

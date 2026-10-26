@@ -166,9 +166,15 @@ public class DetailActivity extends Activity {
         if (!video.channel.isEmpty() && !video.live) {
             List<Catalog.Video> more = catalog.byChannel(video.channel);
             List<View> cards = new ArrayList<>();
-            for (Catalog.Video other : more) {
+            for (final Catalog.Video other : more) {
                 if (other.id.equals(video.id)) continue;
-                cards.add(HomeScreen.videoCard(this, other));
+                cards.add(HomeScreen.videoCard(this, other, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        startActivity(new android.content.Intent(DetailActivity.this, DetailActivity.class)
+                                .putExtra("id", other.id));
+                    }
+                }));
             }
             if (!cards.isEmpty()) content.addView(Ui.cardRow(this, "More from " + video.channelName, cards));
         }
