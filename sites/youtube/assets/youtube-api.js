@@ -43,14 +43,21 @@
     }
   }
 
+  /**
+   * A key typed into Settings wins; otherwise the key baked into the deployment
+   * (assets/config.js, from OPENTUBE_YOUTUBE_API_KEY) is used, so a hosted build
+   * can run against live data on first load.
+   */
   function getKey() {
     const ls = storage('localStorage');
-    if (!ls) return '';
     try {
-      return ls.getItem(KEY_STORAGE) || '';
+      const stored = ls && ls.getItem(KEY_STORAGE);
+      if (stored) return stored;
     } catch (err) {
-      return '';
+      /* storage blocked — fall through to the deployment value */
     }
+    const config = (typeof globalThis !== 'undefined' && globalThis.OPENTUBE_CONFIG) || {};
+    return String(config.apiKey || '').trim();
   }
 
   function setKey(key) {

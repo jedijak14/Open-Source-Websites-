@@ -155,6 +155,51 @@
     }, action ? 5200 : 2600);
   }
 
+  /* --------------------------------------------------------------- banner */
+
+  /**
+   * Page-level banner: appears at the top of the viewport the moment something
+   * happens — saving a key, connecting an account, importing history — so the
+   * feedback is visible without scrolling or reloading. Stacks, auto-dismisses,
+   * and can carry one action link.
+   */
+  function notify(message, options) {
+    const opts = options || {};
+    let host = byId('banners');
+    if (!host) {
+      host = document.createElement('div');
+      host.className = 'banner-host';
+      host.id = 'banners';
+      host.setAttribute('role', 'status');
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    const el = document.createElement('div');
+    el.className = 'banner';
+    el.dataset.tone = opts.tone || 'info';
+    el.innerHTML =
+      '<span class="banner__body">' + esc(message) + '</span>' +
+      (opts.action
+        ? '<a class="banner__action" href="' + esc(opts.action.href) + '">' + esc(opts.action.label) + '</a>'
+        : '') +
+      '<button type="button" class="banner__close" aria-label="Dismiss">' +
+        '<svg class="icon icon--xs" aria-hidden="true"><use href="#i-close"></use></svg>' +
+      '</button>';
+    host.appendChild(el);
+
+    let timer = 0;
+    const dismiss = () => {
+      if (timer) clearTimeout(timer);
+      if (!el.isConnected) return;
+      el.classList.add('is-out');
+      setTimeout(() => el.remove(), 200);
+    };
+    el.querySelector('.banner__close').addEventListener('click', dismiss);
+    const ttl = opts.timeout === 0 ? 0 : (opts.timeout || (opts.action ? 6000 : 4200));
+    if (ttl) timer = setTimeout(dismiss, ttl);
+    return el;
+  }
+
   /* ---------------------------------------------------------------- cards */
 
   let previewTimer = null;
@@ -1351,6 +1396,13 @@
     const account = window.OTLibraryAccount;
     if (account && account.handles(tab)) {
       account.render(tab);
+      // The profile arrives after the token; repaint in place rather than
+      // making anyone reload the page to see their own subscriptions.
+      if (window.OTAuth && window.OTAuth.onChange) {
+        window.OTAuth.onChange(() => {
+          if (account.handles(tab)) account.render(tab);
+        });
+      }
       return;
     }
 
@@ -1400,14 +1452,38 @@
       // discoverable too instead of hiding the option behind settings.
       const connected = window.OTLibraryAccount && window.OTLibraryAccount.signedIn();
       if (tab === 'subs' && !connected) {
+        const ready = window.OTAuth && window.OTAuth.isConfigured && window.OTAuth.isConfigured();
         html = '<div class="panel__note" style="margin-bottom:16px">' + icon('user', 'icon--xs') +
           ' Want the subscriptions from your YouTube account? ' +
-          '<a href="settings.html#account">Connect Google</a> — read-only access, ' +
-          'stored in this browser.</div>' + html;
+          (ready
+            ? '<button type="button" class="link-btn" id="library-connect">Connect Google</button>'
+            : '<a href="settings.html#account">Connect Google</a>') +
+          ' — read-only access, stored in this browser.</div>' + html;
       }
 
       byId('library-title').textContent = title;
       host.innerHTML = html;
+
+      const connectBtn = byId('library-connect');
+      if (connectBtn) {
+        ['pointerenter', 'focusin'].forEach((evt) =>
+          connectBtn.addEventListener(evt, () => window.OTAuth.warm(), { once: true }));
+        connectBtn.addEventListener('click', () => {
+          const account = window.OTLibraryAccount;
+          connectBtn.disabled = true;
+          connectBtn.textContent = 'Opening Google…';
+          window.OTAuth.signIn()
+            .then(() => {
+              notify('Signed in — loading your YouTube subscriptions.', { tone: 'ok' });
+              if (account && account.signedIn()) account.render(tab);
+            })
+            .catch((err) => {
+              connectBtn.disabled = false;
+              connectBtn.textContent = 'Connect Google';
+              notify(err.message || 'Sign-in failed.', { tone: 'error' });
+            });
+        });
+      }
       if (tab === 'subs' && Store.get('subs').length) {
         const grid = byId('subs-grid');
         D.videos.filter((v) => Store.has('subs', v.channel))
@@ -1488,6 +1564,7 @@
     videos: D.videos,
     channels: D.channels,
     toast,
+    notify,
     seek: (s) => playerApi && playerApi.seekTo(s),
     ready: false,
   };

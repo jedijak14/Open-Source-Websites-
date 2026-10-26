@@ -146,7 +146,6 @@
           Nothing is sent anywhere — all state stays in this browser.
         </div>
       </noscript>
-      <div class="live-banner" id="live-banner" hidden></div>
 <div style="max-width:820px;padding-top:24px">
   <h1 style="font-size:34px;font-weight:800;letter-spacing:-1.2px;line-height:1.15">About OpenTube</h1>
   <p style="margin-top:12px;color:var(--text-secondary);font-size:16px;line-height:1.65">
@@ -233,6 +232,7 @@
     </main>
   </div>
 
+  <div class="banner-host" id="banners" role="status" aria-live="polite"></div>
   <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
 
   <div class="menu" id="create-menu" role="menu" aria-label="Create">
@@ -346,6 +346,7 @@
 </div>
 
 
+  <script src="assets/config.js"></script>
   <script src="assets/youtube-api.js"></script>
   <script src="assets/auth.js"></script>
   <script src="assets/live.js"></script>

@@ -42,7 +42,9 @@ Everything a user does (subscriptions, likes, saved videos, history, theme) is s
 The site ships with a fictional dataset so it runs offline with no accounts, keys or
 network calls. It can also run on **real YouTube data** through the official
 [YouTube Data API v3](https://developers.google.com/youtube/v3), opened from the
-account menu → **Live YouTube data…**.
+account menu → **Live YouTube data…** or from Settings → Live data. There is no status strip on
+the page: state is announced in a dismissible banner when it changes, and Settings always shows
+the current mode.
 
 What changes when live mode is on:
 
@@ -107,8 +109,32 @@ read it; Google keeps it behind Takeout only. Settings → Watch history accepts
 result appears in Library → History. This is a limit of Google's platform, not a shortcut here.
 
 Sign-in uses the browser-only token flow, so there is **no client secret** to leak and no server
-component: paste an OAuth client ID, add this origin under *Authorised JavaScript origins*, and
-sign in. The access token is kept in `sessionStorage` for the tab and revoked on sign-out.
+component. The access token is kept in `sessionStorage` for the tab and revoked on sign-out.
+
+### One-click sign-in on a deployment
+
+A hosted build can carry the client ID itself, so visitors press *Sign in with Google* and nothing
+else. `scripts/build-pages.mjs` writes `assets/config.js` from the environment:
+
+```bash
+OPENTUBE_GOOGLE_CLIENT_ID=1234-abcd.apps.googleusercontent.com npm run build
+# or, for a hosted build that runs npm run build:
+#   Vercel → Project → Settings → Environment Variables → OPENTUBE_GOOGLE_CLIENT_ID
+```
+
+Resolution order is *value typed into Settings* → *deployment config* → unset. A client ID is a
+public identifier (it travels in plain text on every request), so it is safe to commit or ship in
+the bundle; the matching secret is never used. With a client ID present, Settings hides the
+paste-it-yourself panel and Library offers the sign-in button directly.
+
+Google's script is **not** loaded on page load: hovering or focusing a sign-in button warms it up,
+so the consent window opens from the click itself and nothing is requested from a third-party
+origin until someone shows intent.
+
+Vercel has no Google identity provider for third-party apps — *Sign in with Vercel* authenticates
+a Vercel account (no YouTube scopes) and *Vercel Connect* brokers OAuth tokens server-side, which a
+static, server-less site cannot use. The client ID listed above is the only piece Google requires
+that a deployment cannot invent for you.
 
 ## No ads, no trackers
 
@@ -142,6 +168,10 @@ npm run build          # regenerate the 7 pages from src/
 npx vercel --prod      # or let the git push deploy
 ```
 
+Because `builds` skips the Build Command, `assets/config.js` is whatever is committed — run
+`npm run build` locally (it reads `OPENTUBE_GOOGLE_CLIENT_ID` / `OPENTUBE_YOUTUBE_API_KEY`) and
+commit the result to configure the deployment.
+
 For Google sign-in, add the deployment origin — `https://opentube-two.vercel.app` — to the OAuth
 client's **Authorised JavaScript origins**, and add it to the API key's HTTP-referrer
 restrictions. Without that, the key or the consent screen will reject browser requests from the
@@ -157,6 +187,7 @@ sites/youtube/
 │   ├── data.js           9 channels, 18 videos, comments (offline dataset)
 │   ├── youtube-api.js    YouTube Data API v3 client + normalisation
 │   ├── auth.js           Google sign-in (GIS token flow) + Takeout importer
+│   ├── config.js         deployment config (client ID, API key) — generated
 │   ├── live.js           live mode: connector modal, live rendering, embed
 │   ├── library-account.js  account-backed Library tabs
 │   ├── settings.js       settings page controller
@@ -174,7 +205,7 @@ sites/youtube/
 │   ├── build-media.sh    thumbnails + clips via ffmpeg
 │   └── build-avatars.py  channel avatar SVGs
 ├── tests/
-│   ├── ui.test.mjs       jsdom UI checks, incl. live + settings (101)
+│   ├── ui.test.mjs       jsdom UI checks, incl. live + settings + banners (113)
 │   ├── youtube-api.test.mjs  API client against a stubbed fetch (59)
 │   └── auth.test.mjs     sign-in lifecycle + Takeout parser (38)
 ├── package.json          start / build / test scripts
@@ -206,13 +237,14 @@ gradient plus a sine chord, faded in and out). Clip lengths are read from
 
 ```bash
 npm install     # jsdom, devDependency only
-npm test        # API client, auth, then jsdom UI suites (198 checks)
+npm test        # API client, auth, then jsdom UI suites (216 checks)
 ```
 
 The suite (`tests/ui.test.mjs`) runs the real site in jsdom: it filters the feed,
 subscribes, likes, toggles captions and theater mode, posts a comment, searches,
 and reloads with seeded `localStorage` to check resume positions, saved videos and
-theme restoration. Any uncaught script error fails the run — 57 checks in total.
+theme restoration, settings, banners and Google sign-in. Any uncaught script error fails
+the run — 59 API + 44 auth + 113 UI checks.
 
 ## Design notes
 

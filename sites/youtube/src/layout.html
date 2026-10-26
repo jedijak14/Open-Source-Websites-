@@ -41,17 +41,18 @@
           Nothing is sent anywhere — all state stays in this browser.
         </div>
       </noscript>
-      <div class="live-banner" id="live-banner" hidden></div>
 {{content}}
       <!-- include: footer -->
     </main>
   </div>
 
+  <div class="banner-host" id="banners" role="status" aria-live="polite"></div>
   <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
 
   <!-- include: menus -->
   <!-- include: live-modal -->
 
+  <script src="assets/config.js"></script>
   <script src="assets/youtube-api.js"></script>
   <script src="assets/auth.js"></script>
   <script src="assets/live.js"></script>

@@ -49,7 +49,34 @@ check('client: id trimmed and stored', AUTH.getClientId() === '123-abc.apps.goog
     err = e;
   }
   check('signin: requires a client id first', err && err.reason === 'missingClientId', err && err.reason);
-  check('signin: message points at settings', /client id/i.test(err && err.message), err && err.message);
+  check('signin: message names the deployment variable',
+  /OPENTUBE_GOOGLE_CLIENT_ID/.test(err && err.message), err && err.message);
+
+/* --------------------------------------- deployment-provided client id */
+
+{
+  // A hosted build ships the client ID in assets/config.js, so sign-in works
+  // with nothing pasted in the browser.
+  const w = makeWindow();
+  w.OPENTUBE_CONFIG = { googleClientId: '  987-zyx.apps.googleusercontent.com  ' };
+  check('config: client id read from the deployment', w.OTAuth.getClientId() === '987-zyx.apps.googleusercontent.com',
+    w.OTAuth.getClientId());
+  check('config: reported as configured', w.OTAuth.isConfigured() === true);
+  check('config: source is the deployment', w.OTAuth.clientSource() === 'deployment', w.OTAuth.clientSource());
+}
+
+{
+  // A value typed into Settings still wins over the baked-in one.
+  const w = makeWindow();
+  w.OPENTUBE_CONFIG = { googleClientId: 'deployed.apps.googleusercontent.com' };
+  w.OTAuth.setClientId('mine.apps.googleusercontent.com');
+  check('config: local id overrides the deployment', w.OTAuth.getClientId() === 'mine.apps.googleusercontent.com',
+    w.OTAuth.getClientId());
+  check('config: source flips to local', w.OTAuth.clientSource() === 'local', w.OTAuth.clientSource());
+  w.OTAuth.setClientId('');
+  check('config: clearing local falls back to the deployment',
+    w.OTAuth.getClientId() === 'deployed.apps.googleusercontent.com', w.OTAuth.getClientId());
+}
 }
 
 /* ------------------------------------------------------- happy path */

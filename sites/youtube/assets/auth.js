@@ -66,13 +66,41 @@
     });
   }
 
+  /** Config baked into the deployment (assets/config.js), if any. */
+  function deploymentConfig() {
+    return global.OPENTUBE_CONFIG || {};
+  }
+
+  /**
+   * Resolution order: a client ID typed into Settings wins (it is the most
+   * specific choice), then the one shipped by the deployment. That way a hosted
+   * build can offer one-click sign-in with no setup in the browser.
+   */
   function getClientId() {
     const store = ls();
     try {
-      return (store && store.getItem(CLIENT_ID_KEY)) || '';
+      const stored = store && store.getItem(CLIENT_ID_KEY);
+      if (stored) return stored;
     } catch (err) {
-      return '';
+      /* storage blocked — fall through to the deployment value */
     }
+    return String(deploymentConfig().googleClientId || '').trim();
+  }
+
+  /** 'local' | 'deployment' | 'none' — where the current client ID came from. */
+  function clientSource() {
+    const store = ls();
+    try {
+      if (store && store.getItem(CLIENT_ID_KEY)) return 'local';
+    } catch (err) {
+      /* ignore */
+    }
+    return deploymentConfig().googleClientId ? 'deployment' : 'none';
+  }
+
+  /** True when sign-in can run immediately, with nothing to configure. */
+  function isConfigured() {
+    return !!getClientId();
   }
 
   function setClientId(id) {
@@ -169,10 +197,29 @@
     });
   }
 
+  let warming = false;
+
+  /**
+   * Starts loading Google Identity Services ahead of the click that needs it, so
+   * the consent window opens inside the user gesture instead of after an await.
+   * Call it from pointer/focus intent — never on page load, because until
+   * someone shows intent this page talks to no third-party origin at all.
+   */
+  function warm() {
+    if (warming || isSignedIn() || !isConfigured()) return;
+    warming = true;
+    loadGis().catch(() => {
+      warming = false;
+    });
+  }
+
   async function signIn() {
     const clientId = getClientId();
     if (!clientId) {
-      const err = new Error('Add your Google OAuth client ID first — see the steps under “Google account”.');
+      const err = new Error(
+        'Google sign-in is not configured for this build. Set OPENTUBE_GOOGLE_CLIENT_ID on the ' +
+        'deployment, or paste an OAuth client ID under “Google account”.'
+      );
       err.reason = 'missingClientId';
       throw err;
     }
@@ -402,6 +449,9 @@
     isSignedIn,
     getClientId,
     setClientId,
+    clientSource,
+    isConfigured,
+    warm,
     refreshProfile,
     get history() { return getHistory(); },
     importTakeout,

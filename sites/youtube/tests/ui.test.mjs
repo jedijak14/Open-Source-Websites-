@@ -283,7 +283,8 @@ async function run() {
       live: LIVE,
       fetch: async () => ({ ok: true, status: 200, json: async () => payload }),
     });
-    check('live: banner shown', !doc.querySelector('#live-banner').hidden);
+    check('live: no live-data strip above the feed', !doc.querySelector('#live-banner'));
+    check('live: banner host present for notifications', !!doc.querySelector('#banners'));
     check('live: masthead LIVE pill', !doc.querySelector('#live-live-badge').hidden);
     check('live: heading switches to trending',
       doc.querySelector('#feed-heading')?.textContent === 'Trending on YouTube',
@@ -370,7 +371,7 @@ async function run() {
     // live mode off: the offline demo dataset must still drive the page
     const { win, doc } = await load('index.html');
     check('live off: demo dataset used', doc.querySelectorAll('#feed-grid .card').length === 18);
-    check('live off: no live banner', doc.querySelector('#live-banner').hidden);
+    check('live off: no live banner element', !doc.querySelector('#live-banner'));
     win.close();
   }
 
@@ -427,6 +428,16 @@ async function run() {
       doc.querySelector('#settings-key-status').textContent);
     check('settings: live mode switched on',
       JSON.parse(win.localStorage.getItem('opentube:live') || '{}').enabled === true);
+    const banner = doc.querySelector('#banners .banner');
+    check('settings: saving the key raises a banner immediately', !!banner,
+      doc.querySelector('#banners')?.innerHTML?.slice(0, 80));
+    check('settings: the banner carries the saved state', /live YouTube data is on/i.test(banner?.textContent || ''),
+      banner?.textContent);
+    check('settings: the banner offers a link to the feed',
+      banner?.querySelector('.banner__action')?.getAttribute('href') === 'index.html');
+    banner?.querySelector('.banner__close').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    await settle(() => !doc.querySelector('#banners .banner'));
+    check('settings: banners can be dismissed', !doc.querySelector('#banners .banner'));
     win.close();
   }
 
@@ -454,6 +465,40 @@ async function run() {
     check('settings: sign-in explains the missing client id', /client id/i.test(msg), msg.slice(0, 90));
     check('settings: sign-in failure styled as error',
       doc.querySelector('#settings-account-status').dataset.tone === 'error');
+    check('settings: sign-in failure raises a banner',
+      !!doc.querySelector('#banners .banner[data-tone="error"]'));
+    win.close();
+  }
+
+  {
+    // A deployment can ship the Google client ID, which turns the account
+    // section into one-click sign-in with nothing to paste.
+    const { win, doc } = await load('settings.html', null, {
+      pre: (w) => { w.OPENTUBE_CONFIG = { googleClientId: 'deployed.apps.googleusercontent.com' }; },
+    });
+    check('settings: deployment client id hides the paste panel',
+      doc.querySelector('#client-manual').hidden === true);
+    check('settings: deployment client id is announced',
+      doc.querySelector('#account-deployment').hidden === false);
+    check('settings: sign-in button stays visible',
+      doc.querySelector('#account-signin').hidden === false);
+    check('settings: hint says sign-in is preconfigured',
+      /preconfigured/i.test(doc.querySelector('#account-hint')?.textContent || ''),
+      doc.querySelector('#account-hint')?.textContent);
+    win.close();
+  }
+
+  {
+    // ...and the Library offers the sign-in itself instead of a settings trip.
+    const { win, doc } = await load('library.html?tab=subs', null, {
+      pre: (w) => { w.OPENTUBE_CONFIG = { googleClientId: 'deployed.apps.googleusercontent.com' }; },
+    });
+    const connect = doc.querySelector('#library-connect');
+    check('library: configured build offers one-click sign-in',
+      connect && connect.tagName === 'BUTTON', connect && connect.tagName);
+    check('library: the connect control is not a settings link when configured',
+      !doc.querySelector('.panel__note a[href="settings.html#account"]'),
+      doc.querySelector('.panel__note')?.innerHTML?.slice(0, 90));
     win.close();
   }
 

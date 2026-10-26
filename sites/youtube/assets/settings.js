@@ -32,6 +32,12 @@
     return next;
   }
 
+  /** Page banner at the top of the viewport — visible without scrolling. */
+  function banner(message, options) {
+    if (global.OT && global.OT.notify) return global.OT.notify(message, options);
+    return null;
+  }
+
   function status(el, message, tone) {
     if (!el) return;
     el.textContent = message || '';
@@ -72,8 +78,13 @@
         setLive({ enabled: true });
         paintLive();
         status(out, 'Key works. Trending sample: “' + (result.sample || 'ok') + '”. Live data is on.', 'ok');
+        banner('API key saved — live YouTube data is on. Sample: “' + (result.sample || 'ok') + '”.', {
+          tone: 'ok',
+          action: { href: 'index.html', label: 'Open the feed' },
+        });
       } catch (err) {
         status(out, err.message || 'That key did not work.', 'error');
+        banner(err.message || 'That API key did not work.', { tone: 'error' });
       } finally {
         saveBtn.disabled = false;
       }
@@ -85,6 +96,7 @@
       setLive({ enabled: false });
       paintLive();
       status(out, 'Key removed. The offline demo dataset is active.', 'info');
+      banner('API key removed — back to the offline demo dataset.');
     });
   }
 
@@ -119,12 +131,28 @@
       toggle.disabled = !ready;
       toggle.setAttribute('aria-checked', String(!!live().enabled && ready));
     }
+
+    const hint = byId('account-hint');
+    if (hint) {
+      hint.textContent = auth().clientSource() === 'deployment'
+        ? 'Sign-in is preconfigured — press “Sign in with Google”.'
+        : (auth().isConfigured()
+          ? 'Sign in to load your subscriptions and liked videos.'
+          : 'Add an OAuth client ID below, then sign in.');
+    }
   }
 
   function initAccount() {
     const idInput = byId('settings-client-id');
     if (!idInput) return;
-    if (auth()) idInput.value = auth().getClientId();
+
+    // A deployment can ship the client ID (assets/config.js), in which case the
+    // paste-it-yourself panel is pointless noise — hide it, keep sign-in visible.
+    const fromDeployment = auth().clientSource() === 'deployment';
+    const manual = byId('client-manual');
+    if (manual) manual.hidden = fromDeployment;
+    byId('account-deployment')?.toggleAttribute('hidden', !fromDeployment);
+    if (auth()) idInput.value = fromDeployment ? '' : auth().getClientId();
     const originEl = byId('client-origin');
     if (originEl) originEl.textContent = location.origin;
 
@@ -134,10 +162,22 @@
       const id = idInput.value.trim();
       if (auth().setClientId(id)) {
         status(out, id ? 'Client ID saved.' : 'Client ID cleared.', id ? 'ok' : 'info');
+        banner(id ? 'Google client ID saved — sign-in is ready.' : 'Google client ID cleared.', {
+          tone: id ? 'ok' : 'info',
+        });
+        paintAccount();
       } else {
         status(out, 'Could not save — browser storage is blocked.', 'error');
       }
     });
+
+    // Show intent (hover/focus) → start loading Google's script, so the popup
+    // opens from the click itself. Nothing loads before that.
+    const signInBtn = byId('account-signin');
+    if (signInBtn) {
+      ['pointerenter', 'focusin'].forEach((evt) =>
+        signInBtn.addEventListener(evt, () => auth().warm(), { once: true }));
+    }
 
     byId('account-signin')?.addEventListener('click', async (e) => {
       const btn = e.currentTarget;
@@ -145,10 +185,18 @@
       status(out, 'Opening Google sign-in…', 'info');
       try {
         await auth().signIn();
+        const name = auth().state.profile && auth().state.profile.channel
+          ? auth().state.profile.channel.name
+          : 'your channel';
         status(out, 'Connected. Subscriptions and liked videos are now in your library.', 'ok');
         paintAccount();
+        banner('Signed in as ' + name + '. Your subscriptions, liked videos and playlists are in Library.', {
+          tone: 'ok',
+          action: { href: 'library.html?tab=subs', label: 'Open Library' },
+        });
       } catch (err) {
         status(out, err.message || 'Sign-in failed.', 'error');
+        banner(err.message || 'Google sign-in failed.', { tone: 'error' });
       } finally {
         btn.disabled = false;
         paintAccount();
@@ -159,6 +207,7 @@
       auth().signOut();
       status(out, 'Signed out; the access token was revoked and cleared.', 'info');
       paintAccount();
+      banner('Signed out of Google — the access token was revoked.');
     });
 
     byId('account-refresh')?.addEventListener('click', async () => {
@@ -166,8 +215,10 @@
       try {
         await auth().refreshProfile();
         status(out, 'Account data refreshed.', 'ok');
+        banner('Account data refreshed.', { tone: 'ok' });
       } catch (err) {
         status(out, err.message || 'Could not refresh.', 'error');
+        banner(err.message || 'Could not refresh account data.', { tone: 'error' });
       }
       paintAccount();
     });
@@ -205,8 +256,13 @@
         const result = await auth().importTakeout(chosen);
         status(out, 'Imported ' + result.entries.toLocaleString() + ' watched videos.', 'ok');
         paintHistory();
+        banner('Imported ' + result.entries.toLocaleString() + ' watched videos from Takeout.', {
+          tone: 'ok',
+          action: { href: 'library.html?tab=history', label: 'Open History' },
+        });
       } catch (err) {
         status(out, err.message || 'That file could not be imported.', 'error');
+        banner(err.message || 'That file could not be imported.', { tone: 'error' });
       } finally {
         file.value = '';
       }
@@ -216,6 +272,7 @@
       auth().clearHistory();
       status(out, 'Imported history removed.', 'info');
       paintHistory();
+      banner('Imported watch history removed from this browser.');
     });
 
     paintHistory();
@@ -247,10 +304,17 @@
       setLive({ enabled: next });
       paintLive();
       paintAccount();
+      banner(next
+        ? 'Live YouTube data is on — the feed now uses the real API.'
+        : 'Live YouTube data is off — showing the offline demo dataset.', {
+        tone: next ? 'ok' : 'info',
+        action: next ? { href: 'index.html', label: 'Open the feed' } : null,
+      });
     });
 
     byId('settings-region')?.addEventListener('change', (e) => {
       setLive({ region: e.currentTarget.value });
+      banner('Trending region set to ' + e.currentTarget.value + '.');
     });
 
     byId('settings-theme')?.addEventListener('click', () => {
@@ -306,6 +370,7 @@
       paintLive();
       paintAccount();
       status(out, 'API key and client ID removed.', 'info');
+      banner('API key and client ID removed from this browser.');
     });
 
     byId('settings-clear-all')?.addEventListener('click', () => {
@@ -322,7 +387,8 @@
       }
       auth().signOut();
       status(out, 'Local OpenTube data cleared. Reloading…', 'ok');
-      setTimeout(() => location.reload(), 700);
+      banner('Local OpenTube data cleared.', { tone: 'ok' });
+      setTimeout(() => location.reload(), 900);
     });
   }
 

@@ -60,11 +60,43 @@
   }
 
   function signInPrompt(what) {
+    // When the deployment ships a client ID there is nothing to configure —
+    // offer the sign-in itself instead of a trip to Settings.
+    const ready = !!(auth() && auth().isConfigured && auth().isConfigured());
     return '<div class="empty-state">' + icon('user') +
       '<h2>Connect your Google account</h2>' +
       '<p>Sign in to load your ' + esc(what) + ' from YouTube. Access is read-only and the ' +
       'token never leaves this browser.</p>' +
-      '<a class="btn-pill btn-pill--solid" href="settings.html#account">Open settings</a></div>';
+      (ready
+        ? '<button class="btn-pill btn-pill--solid" type="button" id="library-signin">Sign in with Google</button>'
+        : '<a class="btn-pill btn-pill--solid" href="settings.html#account">Set up sign-in</a>') +
+      '</div>';
+  }
+
+  /** Wire the prompt's sign-in button, then repaint the tab it belongs to. */
+  function wireSignIn(tab) {
+    const btn = byId('library-signin');
+    if (!btn || !auth()) return;
+    ['pointerenter', 'focusin'].forEach((evt) =>
+      btn.addEventListener(evt, () => auth().warm(), { once: true }));
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      btn.textContent = 'Opening Google…';
+      auth().signIn()
+        .then(() => {
+          if (global.OT && global.OT.notify) {
+            global.OT.notify('Signed in — loading your YouTube account.', { tone: 'ok' });
+          }
+          render(tab);
+        })
+        .catch((err) => {
+          btn.disabled = false;
+          btn.textContent = 'Sign in with Google';
+          if (global.OT && global.OT.notify) {
+            global.OT.notify(err.message || 'Sign-in failed.', { tone: 'error' });
+          }
+        });
+    });
   }
 
   function videoCard(v) {
@@ -113,6 +145,7 @@
     if (!host) return;
     if (!signedIn() && (tab === 'subs' || tab === 'liked')) {
       host.innerHTML = signInPrompt(tab === 'subs' ? 'subscriptions' : 'liked videos');
+      wireSignIn(tab);
       return;
     }
 

@@ -49,6 +49,12 @@
   const qsa = (sel, root) => Array.from((root || document).querySelectorAll(sel));
   const params = () => new URLSearchParams(location.search);
 
+  /** Page banner (falls back to a toast when app.js has not loaded yet). */
+  function notify(message, options) {
+    if (global.OT && global.OT.notify) return global.OT.notify(message, options);
+    return toast(message);
+  }
+
   function toast(message, action) {
     if (global.OT && global.OT.toast) return global.OT.toast(message, action);
     const stack = byId('toasts');
@@ -203,13 +209,21 @@
       state.enabled = !state.enabled;
       saveFlags();
       paintModal();
-      setStatus(state.enabled ? 'Live mode is on. Reload a page to see YouTube data.' : 'Live mode is off.', 'info');
+      setStatus(state.enabled ? 'Live YouTube data is on.' : 'Live YouTube data is off.', 'info');
+      notify(state.enabled
+        ? 'Live YouTube data on — reloading with real results…'
+        : 'Live YouTube data off — back to the offline demo dataset.', { tone: state.enabled ? 'ok' : 'info' });
+      // The page body is rendered once per load, so a refresh is what actually
+      // swaps the dataset; the banner above is already visible while it happens.
+      setTimeout(() => location.reload(), 700);
     });
 
     byId('live-region')?.addEventListener('change', (e) => {
       state.region = e.currentTarget.value;
       saveFlags();
-      setStatus('Region set to ' + state.region + '. Reload to re-fetch trending.', 'info');
+      setStatus('Trending region set to ' + state.region + '.', 'info');
+      notify('Trending region set to ' + state.region + ' — reloading…');
+      setTimeout(() => location.reload(), 700);
     });
 
     byId('live-key')?.addEventListener('keydown', (e) => {
@@ -221,26 +235,6 @@
   }
 
   /* ------------------------------------------------------------- chrome */
-
-  function renderBanner() {
-    const host = byId('live-banner');
-    if (!host) return;
-    const on = isLive();
-    host.hidden = !on;
-    if (!on) return;
-    host.innerHTML =
-      '<span class="live-dot" aria-hidden="true"></span>' +
-      '<strong>Live YouTube data</strong>' +
-      '<span class="live-banner__sep">·</span>' +
-      '<span>region ' + esc(state.region) + '</span>' +
-      '<a href="#" id="live-banner-off">Use the offline demo</a>';
-    byId('live-banner-off')?.addEventListener('click', (e) => {
-      e.preventDefault();
-      state.enabled = false;
-      saveFlags();
-      location.reload();
-    });
-  }
 
   /* ---------------------------------------------------------- rendering */
 
@@ -612,7 +606,6 @@
 
   async function intercept(page) {
     if (!claims(page)) return false;
-    renderBanner();
     if (page === 'home') return homePage();
     if (page === 'search') return searchPage();
     if (page === 'channel') return channelPage();
@@ -624,7 +617,6 @@
     loadFlags();
     initModal();
     paintModal();
-    renderBanner();
   }
 
   global.OTLive = {

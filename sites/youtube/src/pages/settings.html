@@ -55,7 +55,7 @@
             <div class="account-card__avatar" aria-hidden="true">?</div>
             <div>
               <strong>Not connected</strong>
-              <div class="account-card__meta">Add an OAuth client ID below, then sign in.</div>
+              <div class="account-card__meta" id="account-hint">Sign in to load your subscriptions and liked videos.</div>
             </div>
           </div>
           <div class="account-card__profile" id="account-signed-in" hidden>
@@ -68,6 +68,13 @@
           </div>
         </div>
 
+        <p class="panel__note" id="account-deployment" hidden>
+          <strong>Sign-in is ready on this deployment.</strong>
+          The Google client ID is supplied by the build, so there is nothing to paste —
+          press <em>Sign in with Google</em>.
+        </p>
+
+        <div id="client-manual">
         <label class="field__label" for="settings-client-id">OAuth client ID</label>
         <div class="field__row">
           <input class="field__input field__input--mono" id="settings-client-id" type="text"
@@ -80,6 +87,7 @@
           <li>Add <code id="client-origin">this origin</code> under <strong>Authorised JavaScript origins</strong>.</li>
           <li>Paste the client ID above, save, then sign in. No client secret is needed or stored.</li>
         </ol>
+        </div>
         <div class="field__row">
           <button class="btn-pill btn-pill--solid" id="account-signin" type="button">
             <svg class="icon icon--sm" aria-hidden="true"><use href="#i-user"></use></svg>
