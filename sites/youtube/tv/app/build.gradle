@@ -1,0 +1,59 @@
+plugins {
+    id 'com.android.application'
+}
+
+def envOr = { String key, String fallback -> System.getenv(key) ?: fallback }
+def propOr = { String key, String env, String fallback ->
+    (project.findProperty(key) ?: envOr(env, fallback ?: '')).toString()
+}
+
+android {
+    namespace 'dev.opentube.tv'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'dev.opentube.tv'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0.0'
+
+        // Baked-in defaults. Both may also be entered on the TV at runtime
+        // (Settings → Google account), which is what most people will do.
+        buildConfigField 'String', 'CLIENT_ID', '"' + propOr('opentubeClientId', 'OPENTUBE_TV_CLIENT_ID', '') + '"'
+        buildConfigField 'String', 'CLIENT_SECRET', '"' + propOr('opentubeClientSecret', 'OPENTUBE_TV_CLIENT_SECRET', '') + '"'
+        buildConfigField 'String', 'API_KEY', '"' + propOr('opentubeApiKey', 'OPENTUBE_YOUTUBE_API_KEY', '') + '"'
+        buildConfigField 'String', 'SITE', '"https://opentube-two.vercel.app/"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug {
+            // Debug keeps the applicationId so an installable APK can be shared.
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    packaging {
+        resources {
+            excludes += ['META-INF/*']
+        }
+    }
+}

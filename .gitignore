@@ -1,0 +1,15 @@
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Local tooling
+node_modules/
+*.log
+.cache/
+
+# Editor
+.vscode/
+.idea/
+
+# Vercel build output
+.vercel/

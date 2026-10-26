@@ -1,0 +1,97 @@
+name: OpenTube TV
+
+# Builds the Android TV APK. The finished APK is committed back to the branch
+# (sites/youtube/tv/dist/OpenTube-TV.apk) so it can be downloaded straight from
+# the repository, and the Gradle log is committed when a build fails so the
+# failure is readable without the Actions log.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "sites/youtube/tv/**"
+      - ".github/workflows/opentube-tv.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: opentube-tv
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Ensure platform and build tools
+        run: |
+          set +e
+          yes | sdkmanager --licenses > /dev/null 2>&1
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1
+          echo "SDK: ${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          ls "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/platforms" || true
+
+      - name: Build debug APK
+        id: build
+        continue-on-error: true
+        env:
+          TV_CLIENT_ID: ${{ secrets.OPENTUBE_TV_CLIENT_ID }}
+          TV_CLIENT_SECRET: ${{ secrets.OPENTUBE_TV_CLIENT_SECRET }}
+          TV_API_KEY: ${{ secrets.OPENTUBE_YOUTUBE_API_KEY }}
+        run: |
+          set +e
+          cd sites/youtube/tv
+          echo "sdk.dir=${ANDROID_SDK_ROOT:-$ANDROID_HOME}" > local.properties
+          # Optional: bake a TV OAuth client and API key in from repository secrets.
+          EXTRA=""
+          if [ -n "$TV_CLIENT_ID" ]; then EXTRA="$EXTRA -PopentubeClientId=$TV_CLIENT_ID"; fi
+          if [ -n "$TV_CLIENT_SECRET" ]; then EXTRA="$EXTRA -PopentubeClientSecret=$TV_CLIENT_SECRET"; fi
+          if [ -n "$TV_API_KEY" ]; then EXTRA="$EXTRA -PopentubeApiKey=$TV_API_KEY"; fi
+          gradle :app:assembleDebug --no-daemon --console=plain --stacktrace $EXTRA > build-log.txt 2>&1
+          status=$?
+          # Lint catches the API-level and manifest mistakes that a compiler
+          # cannot see, so its text report is published alongside the APK.
+          gradle :app:lintDebug --no-daemon --console=plain >> build-log.txt 2>&1 || true
+          cp app/build/reports/lint-results-debug.txt lint-report.txt 2>/dev/null || true
+          echo "---- build log tail ----"
+          tail -n 120 build-log.txt
+          exit $status
+
+      - name: Collect APK
+        if: always()
+        run: |
+          cd sites/youtube/tv
+          mkdir -p dist
+          if [ -f app/build/outputs/apk/debug/app-debug.apk ]; then
+            cp app/build/outputs/apk/debug/app-debug.apk dist/OpenTube-TV.apk
+            ls -l dist/OpenTube-TV.apk
+          else
+            echo "no APK produced"
+          fi
+
+      - name: Publish result to the branch
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "opentube-ci"
+          git config user.email "ci@opentube.invalid"
+          git add -f sites/youtube/tv/dist sites/youtube/tv/build-log.txt sites/youtube/tv/lint-report.txt
+          if git diff --cached --quiet; then
+            echo "nothing to publish"
+          else
+            git commit -m "ci: build the Android TV APK [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
