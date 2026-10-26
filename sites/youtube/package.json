@@ -8,10 +8,11 @@
   "scripts": {
     "start": "node dev-server.mjs",
     "build": "node scripts/build-pages.mjs",
-    "test": "node tests/youtube-api.test.mjs && node tests/auth.test.mjs && node tests/ui.test.mjs",
+    "test": "node tests/youtube-api.test.mjs && node tests/auth.test.mjs && node tests/recommender.test.mjs && node tests/ui.test.mjs",
     "test:api": "node tests/youtube-api.test.mjs",
     "test:auth": "node tests/auth.test.mjs",
-    "test:ui": "node tests/ui.test.mjs"
+    "test:ui": "node tests/ui.test.mjs",
+    "test:rec": "node tests/recommender.test.mjs"
   },
   "devDependencies": {
     "jsdom": "^30.1.3"

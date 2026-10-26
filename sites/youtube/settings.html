@@ -159,6 +159,7 @@
       <a href="#account">Google account</a>
       <a href="#history">Watch history</a>
       <a href="#live">Live data</a>
+      <a href="#algorithm">Recommendations</a>
       <a href="#ads">Ads &amp; tracking</a>
       <a href="#data">Your data</a>
     </nav>
@@ -207,6 +208,7 @@
           </div>
           <div class="account-card__profile" id="account-signed-in" hidden>
             <img class="account-card__avatar" id="account-avatar" alt="" width="48" height="48">
+            <span class="account-card__avatar avatar-fallback" id="account-initial" hidden aria-hidden="true"></span>
             <div>
               <strong id="account-name">—</strong>
               <div class="account-card__meta" id="account-meta"></div>
@@ -307,6 +309,33 @@
         <p class="field__hint">
           Quota: trending and channel pages cost 1 unit, a search costs 100. The free allowance is
           10,000 units per day; responses are cached for 10 minutes per session.
+        </p>
+      </section>
+
+      <!-- -------------------------------------------------------- algorithm -->
+      <section class="panel" id="algorithm" aria-labelledby="algorithm-h">
+        <h2 id="algorithm-h">Recommendations</h2>
+        <p class="panel__lede">
+          The feed is ranked by a model this site builds itself, on this device, from what you
+          actually watch — how much of it, likes, saves and subscriptions — plus any imported watch
+          history and the Google account you connect. YouTube does not give apps your watch history,
+          so this is the only way the algorithm can learn from it.
+        </p>
+
+        <div class="rec-summary" id="rec-summary"></div>
+        <div class="rec-columns" id="rec-lists"></div>
+
+        <div class="field__row">
+          <button class="btn-pill btn-pill--brand" id="rec-sync" type="button">Sync with my account</button>
+          <button class="btn-pill" id="rec-reset" type="button">Reset what it learned</button>
+        </div>
+        <p class="status" id="settings-rec-status" hidden></p>
+
+        <p class="panel__note">
+          The model is stored per account: signing in with a YouTube account keeps that account's
+          taste (its subscriptions and liked videos are folded in), and signing out returns to the
+          anonymous one. It never leaves the browser — there is no server to send it to, and the
+          read-only scope means nothing is ever written back to YouTube.
         </p>
       </section>
 
@@ -478,6 +507,7 @@
   <script src="assets/live.js"></script>
   <script src="assets/library-account.js"></script>
   <script src="assets/data.js"></script>
+  <script src="assets/recommender.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/settings.js"></script>
 </body>

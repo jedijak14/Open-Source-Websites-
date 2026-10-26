@@ -281,6 +281,7 @@
   }
 
   function signOut() {
+    if (global.OTRec) global.OTRec.useAccount(null);
     const token = state.token;
     forgetToken();
     emit();
@@ -303,6 +304,16 @@
       const profile = await api.myAccount();
       state.profile = profile;
       state.error = null;
+
+      // The algorithm follows the account: its own profile bucket, seeded with
+      // whatever this browser learned before signing in, then the account's
+      // subscriptions and liked videos are folded in.
+      const rec = global.OTRec;
+      if (rec) {
+        const key = (profile && profile.channel && profile.channel.channelId) || 'signed-in';
+        rec.useAccount(key, { seedFromAnonymous: true });
+        rec.mergeAccount(profile);
+      }
       return profile;
     } catch (err) {
       state.error = err.message;
@@ -427,13 +438,24 @@
       throw new Error('No watched videos found in that file. Use watch-history.json or watch-history.html from a YouTube Takeout export.');
     }
     saveHistory(entries);
+    if (global.OTRec) {
+      global.OTRec.mergeTakeout(
+        entries,
+        (global.OT && global.OT.videos) || [],
+        (global.OT && global.OT.channels) || {}
+      );
+    }
     emit();
     return { entries: entries.length, importedAt: new Date().toISOString() };
   }
 
   /* ------------------------------------------------------------- boot */
 
+  let initialised = false;
+
   function init() {
+    if (initialised) return;
+    initialised = true;
     restoreToken();
     emit();
     if (isSignedIn()) {

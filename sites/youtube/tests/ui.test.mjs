@@ -544,6 +544,124 @@ async function run() {
     win.close();
   }
 
+  {
+    // a learned taste reorders the feed and explains itself
+    const rec = JSON.stringify({
+      v: 1,
+      updated: Date.now(),
+      channels: { analog: { w: 6, n: 4, last: Date.now() } },
+      categories: { Music: { w: 3, n: 3, last: Date.now() } },
+      tags: { synth: { w: 2, n: 2, last: Date.now() } },
+      videos: {},
+      sources: { watch: 4, takeout: 0, account: 0 },
+    });
+    const { win, doc } = await load('index.html', null, {
+      pre: (w) => w.localStorage.setItem('opentube:rec:anon', rec),
+    });
+    check('feed: learned taste switches the heading', doc.querySelector('#feed-heading')?.textContent === 'For you',
+      doc.querySelector('#feed-heading')?.textContent);
+    const first = doc.querySelector('#feed-grid .card__meta a');
+    check('feed: the liked channel leads', /Analog Autopsy/.test(first?.textContent || ''), first?.textContent);
+    check('feed: the ranking is explained', doc.querySelector('#feed-reason')?.hidden === false,
+      doc.querySelector('#feed-reason')?.textContent);
+    check('feed: the model can be reset in place', !!doc.querySelector('#feed-reset'));
+    doc.querySelector('#feed-reset').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    check('feed: reset restores newest-first', doc.querySelector('#feed-heading')?.textContent === 'Recommended',
+      doc.querySelector('#feed-heading')?.textContent);
+    win.close();
+  }
+
+  {
+    // no channel carries a banner strip any more
+    const { win, doc } = await load('channel.html?c=analog');
+    check('channel: no banner strip', !doc.querySelector('.channel-banner'));
+    check('channel: header still renders', !!doc.querySelector('.channel-head__name'));
+    win.close();
+  }
+
+  {
+    // account-backed subscriptions + avatars, end to end, with a stubbed API
+    const token = JSON.stringify({ token: 'stub-token', expiresAt: Date.now() + 3600 * 1000 });
+    const payloads = {
+      channels: { items: [{
+        id: 'UCme',
+        snippet: { title: 'My Channel', thumbnails: { high: { url: 'https://yt3.ggpht.com/me.jpg' } } },
+        statistics: { subscriberCount: '12', videoCount: '3' },
+        contentDetails: { relatedPlaylists: { uploads: 'UUme' } },
+      }] },
+      subscriptions: { items: [
+        { snippet: { title: 'Alpha Channel', resourceId: { channelId: 'UCa' },
+          thumbnails: { high: { url: 'https://yt3.ggpht.com/a.jpg' } }, description: 'Alpha about' } },
+        { snippet: { title: 'Beta Channel', resourceId: { channelId: 'UCb' },
+          thumbnails: { default: { url: 'https://yt3.ggpht.com/b.jpg' } }, description: 'Beta about' } },
+      ] },
+      videos: { items: [{
+        id: 'abc12345xyz',
+        snippet: { title: 'A liked video', channelId: 'UCa', channelTitle: 'Alpha Channel',
+          publishedAt: '2026-09-01T00:00:00Z', thumbnails: { high: { url: 'https://i.ytimg.com/x.jpg' } }, tags: ['synth'] },
+        contentDetails: { duration: 'PT4M' },
+        statistics: { viewCount: '5' },
+      }] },
+      playlists: { items: [] },
+    };
+    const { win, doc } = await load('library.html?tab=subs', null, {
+      pre: (w) => {
+        w.sessionStorage.setItem('opentube:google-token', token);
+        w.OPENTUBE_CONFIG = { googleClientId: 'deployed.apps.googleusercontent.com' };
+      },
+      fetch: async (url) => {
+        const target = String(url);
+        const endpoint = Object.keys(payloads).find((name) => target.includes('/youtube/v3/' + name));
+        return { ok: true, status: 200, json: async () => (endpoint ? payloads[endpoint] : { items: [] }) };
+      },
+    });
+
+    await settle(() => doc.querySelectorAll('.account-channel').length === 2);
+    check('account: subscriptions are synced', doc.querySelectorAll('.account-channel').length === 2,
+      doc.querySelectorAll('.account-channel').length + '');
+    check('account: subscription names render',
+      /Alpha Channel/.test(doc.querySelector('#library-body')?.textContent || ''));
+    const avatars = [...doc.querySelectorAll('.account-channel img')].map((img) => img.getAttribute('src'));
+    check('account: profile pictures use the API avatars',
+      avatars.length === 2 && avatars.every((src) => /yt3\.ggpht\.com/.test(src || '')), avatars.join(' '));
+    check('account: subscription count is stated',
+      /2 subscriptions/.test(doc.querySelector('#library-body')?.textContent || ''),
+      (doc.querySelector('#library-body')?.textContent || '').slice(0, 60));
+    check('account: header avatar shows the channel picture',
+      !!doc.querySelector('#avatar-btn img[src*="yt3.ggpht.com"]'));
+    check('account: the algorithm takes the account signals',
+      !!win.OTRec.get().channels.UCa && win.OTRec.get().channels.UCa.w > 0,
+      JSON.stringify(win.OTRec.get().channels.UCa));
+    check('account: liking is folded into the model',
+      !!win.OTRec.get().videos.abc12345xyz);
+    win.close();
+  }
+
+  {
+    // the settings page explains and can reset what the model learned
+    const rec = JSON.stringify({
+      v: 1, updated: Date.now(),
+      channels: { nullbyte: { w: 4, n: 3, last: Date.now() } },
+      categories: { Programming: { w: 2, n: 3, last: Date.now() } },
+      tags: { rust: { w: 1, n: 2, last: Date.now() } },
+      videos: { 'v-lexer': { pos: 40, dur: 96, completed: false, at: Date.now(), repeats: 1 } },
+      sources: { watch: 3, takeout: 0, account: 0 },
+    });
+    const { win, doc } = await load('settings.html', null, {
+      pre: (w) => w.localStorage.setItem('opentube:rec:anon', rec),
+    });
+    check('settings: algorithm section present', !!doc.querySelector('#algorithm'));
+    check('settings: learned channels are listed',
+      /nullbyte/.test(doc.querySelector('#rec-lists')?.textContent || ''),
+      doc.querySelector('#rec-lists')?.textContent?.slice(0, 60));
+    check('settings: it says how many videos are in the model',
+      /1/.test(doc.querySelector('#rec-summary')?.textContent || ''));
+    doc.querySelector('#rec-reset').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    check('settings: reset empties the model', win.OTRec.hasSignals() === false);
+    check('settings: reset raises a banner', !!doc.querySelector('#banners .banner'));
+    win.close();
+  }
+
   const failed = results.filter((r) => !r.ok);
   for (const r of results) {
     console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.name}${r.detail ? '  → ' + r.detail : ''}`);

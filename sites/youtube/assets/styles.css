@@ -1068,26 +1068,11 @@ body[data-theater="on"] .watch__primary { max-width: 1280px; margin: 0 auto; pad
 .switch[aria-checked="true"]::after { transform: translateX(16px); }
 
 /* --------------------------------------------------------------- channel page */
-.channel-banner {
-  margin-top: 16px;
-  height: 200px;
-  border-radius: var(--radius-lg);
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(120deg, #1f4fff, #7b2ff7 55%, #ff2d55);
-}
-.channel-banner::after {
-  content: "";
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(600px 240px at 78% 20%, rgb(255 255 255 / 26%), transparent 70%),
-    radial-gradient(400px 200px at 12% 90%, rgb(0 0 0 / 26%), transparent 70%);
-}
 .channel-head {
   display: flex;
   gap: 24px;
   align-items: flex-start;
-  padding: 24px 4px 0;
+  padding: 20px 4px 0;
   flex-wrap: wrap;
 }
 .channel-head__avatar {
@@ -1613,7 +1598,6 @@ body.modal-open { overflow: hidden; }
   .player-wrap { border-radius: 0; margin: 0 -12px; width: calc(100% + 24px); }
   .channel-head__avatar { width: 88px; height: 88px; margin-top: -32px; }
   .channel-head__name { font-size: 24px; }
-  .channel-banner { height: 120px; }
   .mini-card { grid-template-columns: 140px minmax(0, 1fr); }
   .toast-stack { left: 12px; right: 12px; bottom: 12px; }
   .banner-host { width: calc(100vw - 16px); top: calc(var(--header-h) + 6px); }
@@ -1797,3 +1781,111 @@ body.modal-open { overflow: hidden; }
   .panel { padding: 16px; }
   .settings__head h1 { font-size: 26px; }
 }
+
+/* ------------------------------------------------------------- avatars */
+
+.avatar-fallback {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.account-card__avatar.avatar-fallback { width: 48px; height: 48px; font-size: 19px; }
+.avatar-btn img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* --------------------------------------------------------- feed reason */
+
+.section-head--feed { align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.feed-reason {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.feed-reason[hidden] { display: none; }
+.feed-reason .link-btn { font-size: 12.5px; }
+
+/* -------------------------------------------------------- algorithm panel */
+
+.rec-summary { margin-top: 14px; }
+.rec-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.rec-stats strong { color: var(--text); }
+.rec-sources {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.rec-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  margin: 18px 0 16px;
+}
+.rec-column h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.rec-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.rec-row__key {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-row__bar {
+  flex: none;
+  width: 72px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.rec-row__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+.rec-row__n {
+  flex: none;
+  width: 26px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.rec-empty { font-size: 12.5px; color: var(--text-tertiary); }
+
+/* a failure that must not look like an empty list */
+.panel__note--warn {
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid #d92d20;
+  background: var(--surface);
+  color: var(--text);
+}
+.panel__note--warn strong { color: var(--text); }
+.panel__note-raw { color: var(--text-tertiary); font-size: 11.5px; }

@@ -200,6 +200,38 @@
     return el;
   }
 
+  /* --------------------------------------------------------- header avatar */
+
+  /**
+   * The account button shows the signed-in channel's picture, so connecting an
+   * account is visible everywhere — not just on the settings page.
+   */
+  function paintHeaderAvatar() {
+    const btn = byId('avatar-btn');
+    const auth = window.OTAuth;
+    if (!btn || !auth) return;
+    const channel = (auth.state && auth.state.profile && auth.state.profile.channel) || null;
+    const signedIn = auth.isSignedIn();
+
+    if (signedIn && channel && channel.avatar) {
+      btn.innerHTML = '<img src="' + esc(channel.avatar) + '" alt="" width="32" height="32" data-avatar data-name="' +
+        esc(channel.name) + '">';
+      btn.title = channel.name;
+      btn.setAttribute('aria-label', 'Account — ' + channel.name);
+      const img = btn.querySelector('img');
+      img?.addEventListener('error', () => {
+        img.replaceWith(document.createTextNode(String(channel.name || 'Y').charAt(0).toUpperCase()));
+      }, { once: true });
+    } else if (signedIn) {
+      btn.textContent = String((channel && channel.name) || 'Y').charAt(0).toUpperCase();
+      btn.title = (channel && channel.name) || 'Account';
+    } else {
+      btn.textContent = 'Y';
+      btn.title = '';
+      btn.setAttribute('aria-label', 'Account');
+    }
+  }
+
   /* ---------------------------------------------------------------- cards */
 
   let previewTimer = null;
@@ -586,12 +618,17 @@
       });
     }
 
+    // The recommender owns ordering once it has anything to go on; until then
+    // the feed stays newest-first, which is the honest default.
+    const rec = window.OTRec;
+
     function paint() {
       grid.innerHTML = '';
-      const list = D.videos
-        .filter((v) => active === 'All' || v.category === active)
-        .slice()
-        .sort((a, b) => (a.published < b.published ? 1 : -1));
+      const pool = D.videos.filter((v) => active === 'All' || v.category === active);
+      const personalised = !!(rec && rec.hasSignals());
+      const list = personalised
+        ? rec.rank(pool)
+        : pool.slice().sort((a, b) => (a.published < b.published ? 1 : -1));
       if (!list.length) {
         grid.innerHTML = '<div class="empty-state">' + icon('compass') +
           '<h2>Nothing here yet</h2><p>No videos in “' + esc(active) + '”. Try another category.</p></div>';
@@ -599,7 +636,33 @@
       }
       list.forEach((v) => grid.appendChild(card(v)));
       const heading = byId('feed-heading');
-      if (heading) heading.textContent = active === 'All' ? 'Recommended' : active;
+      if (heading) heading.textContent = active === 'All'
+        ? (personalised ? 'For you' : 'Recommended')
+        : active;
+
+      const reason = byId('feed-reason');
+      if (reason) {
+        const best = personalised ? rec.reasonFor(list[0]) : '';
+        reason.hidden = !personalised;
+        reason.textContent = personalised
+          ? 'Ranked locally from what you watch' + (best ? ' · ' + best : '') + ' ·'
+          : '';
+        if (personalised && !byId('feed-reset')) {
+          const reset = document.createElement('button');
+          reset.type = 'button';
+          reset.id = 'feed-reset';
+          reset.className = 'link-btn';
+          reset.textContent = 'Reset';
+          reset.addEventListener('click', () => {
+            rec.reset();
+            paint();
+            notify('Recommendation history cleared. The feed is back to newest first.');
+          });
+          reason.appendChild(document.createTextNode(' '));
+          reason.appendChild(reset);
+        }
+      }
+
       const sub = byId('feed-count');
       if (sub) sub.textContent = list.length + (list.length === 1 ? ' video' : ' videos');
     }
@@ -640,6 +703,8 @@
     const v = video(id) || D.videos[0];
     if (!v) return;
     const ch = channel(v.channel);
+    // Declared here because likes, saves and playback progress all report to it.
+    const rec = window.OTRec;
 
     document.title = v.title + ' — OpenTube';
 
@@ -684,6 +749,7 @@
       if (current === dir) delete likes[v.id]; else likes[v.id] = dir;
       Store.set('likes', likes);
       paintLikes();
+      if (rec && current !== dir) rec.record(dir === 1 ? 'like' : 'dislike', v);
     }
     likeBtn?.addEventListener('click', () => setLike(1));
     dislikeBtn?.addEventListener('click', () => setLike(-1));
@@ -698,6 +764,7 @@
     }
     saveBtn?.addEventListener('click', () => {
       const added = Store.toggleInList('later', v.id);
+      if (added && rec) rec.record('save', v);
       paintSave();
       toast(added ? 'Saved to Watch later' : 'Removed from Watch later',
         added ? { label: 'View', href: 'library.html?tab=later' } : null);
@@ -943,6 +1010,35 @@
       if (!media.paused && media.currentTime > 2) Store.remember(v.id, media.currentTime);
     }, 5000);
 
+    /* ------------------------------------------------- recommendation signal
+     * The model learns from how much of a video someone actually watches, not
+     * just that they opened it. Each flush is one observation; bailing out in
+     * the first few seconds is recorded as the (weak) negative it is.
+     */
+    let flushed = 0;
+    let maxSeen = 0;
+    media.addEventListener('timeupdate', () => {
+      if (Number.isFinite(media.currentTime)) maxSeen = Math.max(maxSeen, media.currentTime);
+    });
+
+    function flushRec(kind) {
+      if (!rec || !v) return;
+      const duration = Number(media.duration) || v.duration || 0;
+      if (kind !== 'complete' && maxSeen - flushed < 3) return;
+      if (kind !== 'complete' && maxSeen < 3 && duration > 20) return;
+      flushed = Math.max(flushed, maxSeen);
+      rec.record(kind === 'complete' ? 'complete' : 'watch', v, {
+        watched: Math.round(maxSeen),
+        duration: Math.round(duration),
+        fraction: duration ? Math.min(1, maxSeen / duration) : 0.5,
+      });
+    }
+
+    media.addEventListener('ended', () => flushRec('complete'));
+    media.addEventListener('pause', () => flushRec('watch'));
+    window.addEventListener('pagehide', () => flushRec('watch'));
+    setInterval(() => { if (!media.paused) flushRec('watch'); }, 15000);
+
     // scrub
     let dragging = false;
     const ratio = (e) => {
@@ -1178,7 +1274,6 @@
     const subscribed = Store.has('subs', slug);
 
     host.innerHTML =
-      '<div class="channel-banner"></div>' +
       '<div class="channel-head">' +
         '<img class="channel-head__avatar" src="' + ch.avatar + '" alt="' + esc(ch.name) + '">' +
         '<div class="channel-head__info">' +
@@ -1207,6 +1302,13 @@
       e.currentTarget.classList.toggle('btn-pill--solid', !nowSubscribed);
       renderSidebar();
       toast(nowSubscribed ? 'Subscribed to ' + ch.name : 'Unsubscribed');
+      // Subscribing is the clearest statement of taste there is.
+      const rec = window.OTRec;
+      if (rec) {
+        rec.record(nowSubscribed ? 'subscribe' : 'unsubscribe', {
+          id: '', channel: slug, channelName: ch.name, category: ch.category || '', tags: [],
+        });
+      }
     });
     byId('ch-join').addEventListener('click', () => toast('Memberships are not part of this demo'));
     byId('ch-more').addEventListener('click', (e) => {
@@ -1394,15 +1496,17 @@
     // Account-backed tabs (subscriptions, liked, imported history) are owned by
     // library-account.js when the data exists; otherwise the demo renders them.
     const account = window.OTLibraryAccount;
+
+    // Whether or not this tab is account-backed *right now*, listen for the
+    // account arriving — the profile load always finishes after the first paint.
+    if (account && window.OTAuth && window.OTAuth.onChange) {
+      window.OTAuth.onChange(() => {
+        if (account.handles(tab)) account.render(tab);
+      });
+    }
+
     if (account && account.handles(tab)) {
       account.render(tab);
-      // The profile arrives after the token; repaint in place rather than
-      // making anyone reload the page to see their own subscriptions.
-      if (window.OTAuth && window.OTAuth.onChange) {
-        window.OTAuth.onChange(() => {
-          if (account.handles(tab)) account.render(tab);
-        });
-      }
       return;
     }
 
@@ -1519,11 +1623,19 @@
 
   function boot() {
     Store.load();
+    // Restore any Google session before the first paint: otherwise the Library
+    // renders its signed-out state and never notices that a token arrived.
+    if (window.OTAuth) window.OTAuth.init();
     applyTheme();
     applySidebar();
     renderSidebar();
     initHeader();
     document.body.dataset.theater = Store.get('theater') ? 'on' : 'off';
+
+    if (window.OTAuth) {
+      window.OTAuth.onChange(paintHeaderAvatar);
+      paintHeaderAvatar();
+    }
 
     const page = document.body.dataset.page;
     const done = () => {

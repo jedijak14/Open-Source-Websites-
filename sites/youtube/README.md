@@ -108,6 +108,12 @@ read it; Google keeps it behind Takeout only. Settings → Watch history accepts
 `watch-history.json` (or the HTML export), filters out ad views and non-video entries, and the
 result appears in Library → History. This is a limit of Google's platform, not a shortcut here.
 
+Subscriptions and liked videos are fetched across pages (`nextPageToken`, up to 200 / 100
+entries), because a single page of 50 is the most common reason a sync looks empty. Sections that
+fail are **shown** — with the reason (expired token, missing scope, exhausted quota) — rather than
+rendered as an empty list. Channel pictures fall back to an initial when an avatar URL 404s, and
+the header account button shows the connected channel's picture on every page.
+
 Sign-in uses the browser-only token flow, so there is **no client secret** to leak and no server
 component. The access token is kept in `sessionStorage` for the tab and revoked on sign-out.
 
@@ -135,6 +141,49 @@ Vercel has no Google identity provider for third-party apps — *Sign in with Ve
 a Vercel account (no YouTube scopes) and *Vercel Connect* brokers OAuth tokens server-side, which a
 static, server-less site cannot use. The client ID listed above is the only piece Google requires
 that a deployment cannot invent for you.
+
+## The algorithm (recommendations)
+
+The feed is ranked by a model this site builds itself, in the browser. It learns from what people
+actually do — not from anything YouTube hands over, because YouTube does not hand anything over:
+
+| Signal | Weight | Where it comes from |
+| --- | --- | --- |
+| Finished a video | strongest positive | player: 85%+ watched |
+| Half-watched | proportional | player: playtime / duration |
+| Bailed in the first seconds | weak negative | player: <10% watched |
+| Like / dislike | strong ± | the like buttons |
+| Subscribe / unsubscribe | strongest ± | channel pages |
+| Save for later | moderate + | the Save button |
+| Imported watch history | decays over 60 days | Google Takeout import |
+| Account subscriptions | strong + | signed in: `subscriptions.list` |
+| Account liked videos | moderate + | signed in: `videos.list?myRating=like` |
+
+Scoring is a weighted sum of channel, category and tag affinity plus recency, with a small
+per-day jitter so the order has some variety without reshuffling on every paint:
+
+```
+score = 0.50·channel + 0.24·category + 0.14·tags + 0.12·freshness + 0.06·jitter
+        − watched penalty (0.22 finished / 0.08 partial / 0.18 skipped) + 0.08 for rewatches
+```
+
+Affinities use a 30-day half-life, so last week's binge outranks last year's, and each new
+observation decays the old weight before adding. Weights are squashed into [-1, 1] so one video
+cannot take over the feed. Every card can explain itself (`reasonFor`), which is what the line
+under the “For you” heading shows.
+
+**Per-account sync.** The model is stored under `opentube:rec:<channelId>` — signing in with a
+YouTube account switches to that account's profile (seeded with whatever this browser learned
+anonymously), folds in its subscriptions and liked videos, and signing out returns to the
+anonymous profile. Signing back in restores it. It stays on the device: there is no server to
+sync through, and `youtube.readonly` means nothing can be written back to YouTube.
+
+Settings → **Recommendations** shows what the model believes, how many signals came from each
+source, and can reset it. The feed's “For you” line has a Reset too.
+
+Note on live mode: videos rendered from the YouTube API are ranked and displayed, but the model
+only learns from the bundled demo catalogue — there is no reliable way to observe playtime inside
+the YouTube iframe player.
 
 ## No ads, no trackers
 
@@ -188,6 +237,7 @@ sites/youtube/
 │   ├── youtube-api.js    YouTube Data API v3 client + normalisation
 │   ├── auth.js           Google sign-in (GIS token flow) + Takeout importer
 │   ├── config.js         deployment config (client ID, API key) — generated
+│   ├── recommender.js    on-device ranking model (per-account profiles)
 │   ├── live.js           live mode: connector modal, live rendering, embed
 │   ├── library-account.js  account-backed Library tabs
 │   ├── settings.js       settings page controller
@@ -205,7 +255,8 @@ sites/youtube/
 │   ├── build-media.sh    thumbnails + clips via ffmpeg
 │   └── build-avatars.py  channel avatar SVGs
 ├── tests/
-│   ├── ui.test.mjs       jsdom UI checks, incl. live + settings + banners (113)
+│   ├── recommender.test.mjs  ranking model + account-backed Library (52)
+│   ├── ui.test.mjs       jsdom UI checks, incl. live + settings + banners (132)
 │   ├── youtube-api.test.mjs  API client against a stubbed fetch (59)
 │   └── auth.test.mjs     sign-in lifecycle + Takeout parser (38)
 ├── package.json          start / build / test scripts
@@ -237,14 +288,14 @@ gradient plus a sine chord, faded in and out). Clip lengths are read from
 
 ```bash
 npm install     # jsdom, devDependency only
-npm test        # API client, auth, then jsdom UI suites (216 checks)
+npm test        # API client, auth, recommender, then jsdom UI (287 checks)
 ```
 
 The suite (`tests/ui.test.mjs`) runs the real site in jsdom: it filters the feed,
 subscribes, likes, toggles captions and theater mode, posts a comment, searches,
 and reloads with seeded `localStorage` to check resume positions, saved videos and
 theme restoration, settings, banners and Google sign-in. Any uncaught script error fails
-the run — 59 API + 44 auth + 113 UI checks.
+the run — 59 API + 44 auth + 52 recommender + 132 UI checks.
 
 ## Design notes
 

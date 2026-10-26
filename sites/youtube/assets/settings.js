@@ -45,6 +45,12 @@
     el.dataset.tone = tone || 'info';
   }
 
+  function esc(str) {
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
   function count(n) {
     n = Number(n) || 0;
     if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
@@ -114,8 +120,26 @@
 
     if (signedIn && channel) {
       const avatar = byId('account-avatar');
-      avatar.src = channel.avatar || '';
-      avatar.alt = channel.name + ' avatar';
+      if (channel.avatar) {
+        avatar.hidden = false;
+        avatar.src = channel.avatar;
+        avatar.alt = channel.name + ' avatar';
+        avatar.onerror = () => {
+          avatar.hidden = true;
+          const fallback = byId('account-initial');
+          if (fallback) {
+            fallback.hidden = false;
+            fallback.textContent = String(channel.name || '?').charAt(0).toUpperCase();
+          }
+        };
+      } else {
+        avatar.hidden = true;
+        const fallback = byId('account-initial');
+        if (fallback) {
+          fallback.hidden = false;
+          fallback.textContent = String(channel.name || '?').charAt(0).toUpperCase();
+        }
+      }
       byId('account-name').textContent = channel.name;
       byId('account-meta').textContent =
         count(channel.subscribers) + ' subscribers · ' +
@@ -190,6 +214,7 @@
           : 'your channel';
         status(out, 'Connected. Subscriptions and liked videos are now in your library.', 'ok');
         paintAccount();
+        paintAlgorithm();
         banner('Signed in as ' + name + '. Your subscriptions, liked videos and playlists are in Library.', {
           tone: 'ok',
           action: { href: 'library.html?tab=subs', label: 'Open Library' },
@@ -214,8 +239,20 @@
       status(out, 'Refreshing account data…', 'info');
       try {
         await auth().refreshProfile();
-        status(out, 'Account data refreshed.', 'ok');
-        banner('Account data refreshed.', { tone: 'ok' });
+        const profile = auth().state.profile;
+        const problems = profile && profile.errors
+          ? Object.keys(profile.errors).filter((key) => profile.errors[key])
+          : [];
+        if (problems.length) {
+          status(out, 'Refreshed, but ' + problems.join(' and ') + ' could not load: ' +
+            profile.errors[problems[0]], 'error');
+          banner('Account connected, but ' + problems.join(' and ') + ' did not load. ' +
+            'Sign out and back in to re-grant read-only access.', { tone: 'error' });
+        } else {
+          status(out, 'Account data refreshed.', 'ok');
+          banner('Account data refreshed.', { tone: 'ok' });
+        }
+        paintAlgorithm();
       } catch (err) {
         status(out, err.message || 'Could not refresh.', 'error');
         banner(err.message || 'Could not refresh account data.', { tone: 'error' });
@@ -327,6 +364,105 @@
     paintLive();
   }
 
+  /* ------------------------------------------------------- algorithm */
+
+  function rec() {
+    return global.OTRec || null;
+  }
+
+  function paintAlgorithm() {
+    const summary = byId('rec-summary');
+    const lists = byId('rec-lists');
+    const model = rec();
+    if (!summary || !lists || !model) return;
+
+    const data = model.top(5);
+    const signedIn = auth() && auth().isSignedIn();
+    const channel = signedIn && auth().state.profile && auth().state.profile.channel;
+
+    if (!model.hasSignals()) {
+      summary.innerHTML = '<strong>Nothing learned yet.</strong> Watch a video, like or save ' +
+        'something, import your history, or sign in with Google — the feed switches from ' +
+        'newest-first to “For you” as soon as it has something to go on.';
+      lists.innerHTML = '';
+      return;
+    }
+
+    const scopeLabel = signedIn && channel
+      ? 'Follows the account <strong>' + esc(channel.name) + '</strong>'
+      : 'Follows this browser (signed out)';
+
+    summary.innerHTML =
+      '<div class="rec-stats">' +
+        '<span><strong>' + data.watched.toLocaleString() + '</strong> videos in the model</span>' +
+        '<span><strong>' + Object.keys(model.get().channels).length + '</strong> channels</span>' +
+        '<span>' + scopeLabel + '</span>' +
+      '</div>' +
+      '<div class="rec-sources">Signals — watched: ' + (data.sources.watch || 0) +
+        ' · history import: ' + (data.sources.takeout || 0) +
+        ' · account: ' + (data.sources.account || 0) +
+        (data.updated ? ' · updated ' + new Date(data.updated).toLocaleString() : '') +
+      '</div>';
+
+    const column = (title, entries, empty) =>
+      '<div class="rec-column"><h3>' + title + '</h3>' +
+        (entries.length
+          ? entries.map((entry) =>
+              '<div class="rec-row"><span class="rec-row__key">' + esc(entry.key) + '</span>' +
+                '<span class="rec-row__bar"><span style="width:' + Math.max(6, Math.round(entry.weight * 26)) + 'px"></span></span>' +
+                '<span class="rec-row__n">' + entry.count + '</span></div>').join('')
+          : '<p class="rec-empty">' + empty + '</p>') +
+      '</div>';
+
+    lists.innerHTML =
+      column('Channels it thinks you like', data.channels, 'None yet.') +
+      column('Categories', data.categories, 'None yet.') +
+      column('Topics', data.tags, 'None yet.');
+  }
+
+  function initAlgorithm() {
+    const model = rec();
+    if (!model) return;
+
+    byId('rec-reset')?.addEventListener('click', () => {
+      model.reset();
+      paintAlgorithm();
+      banner('Recommendation history cleared — the feed is back to newest first.');
+    });
+
+    byId('rec-sync')?.addEventListener('click', async (e) => {
+      const out = byId('settings-rec-status');
+      const btn = e.currentTarget;
+      if (!auth() || !auth().isSignedIn()) {
+        status(out, 'Sign in with Google first — then the model can follow that account.', 'error');
+        banner('Sign in with Google first, then press Sync.', { tone: 'error' });
+        return;
+      }
+      btn.disabled = true;
+      status(out, 'Reading your subscriptions and liked videos…', 'info');
+      try {
+        await auth().refreshProfile();
+        paintAlgorithm();
+        const profile = auth().state.profile;
+        const subs = (profile && profile.subscriptions) || [];
+        status(out, 'Synced ' + subs.length + ' subscriptions and ' +
+          ((profile && profile.liked) || []).length + ' liked videos into the model.', 'ok');
+        banner('Algorithm synced with your YouTube account — ' + subs.length + ' subscriptions folded in.', {
+          tone: 'ok', action: { href: 'index.html', label: 'See the feed' },
+        });
+      } catch (err) {
+        status(out, err.message || 'Could not sync.', 'error');
+        banner(err.message || 'Could not sync with your account.', { tone: 'error' });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Repaint whenever the model learns something while settings is open.
+    model.onChange(paintAlgorithm);
+    paintAlgorithm();
+  }
+
   /* --------------------------------------------------------------- ads */
 
   function initAdsAudit() {
@@ -399,6 +535,7 @@
     initAccount();
     initHistory();
     initLive();
+    initAlgorithm();
     initData();
     // the audit needs the page's own resource timings, so read them after load
     setTimeout(initAdsAudit, 250);

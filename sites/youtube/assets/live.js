@@ -416,7 +416,6 @@
       const subscribed = (global.OT?.Store?.get('subs') || []).includes('ytc:' + channel.channelId);
 
       host.innerHTML =
-        '<div class="channel-banner"></div>' +
         '<div class="channel-head">' +
           '<img class="channel-head__avatar" src="' + esc(channel.avatar) + '" alt="">' +
           '<div class="channel-head__info">' +

@@ -280,6 +280,31 @@
     return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
   }
 
+  /**
+   * Collects list results across pages. Subscriptions and liked videos are the
+   * two places where one page of 50 is not enough — "it doesn't sync" usually
+   * means "it only fetched the first page".
+   */
+  async function paged(endpoint, params, mapFn, options) {
+    const opts = options || {};
+    const maxItems = opts.maxItems || 200;
+    const maxPages = opts.maxPages || 4;
+    const items = [];
+    let pageToken = '';
+    for (let page = 0; page < maxPages; page += 1) {
+      const query = Object.assign({}, params, pageToken ? { pageToken } : {});
+      const body = await request(endpoint, query);
+      (body.items || []).forEach((item) => {
+        if (items.length >= maxItems) return;
+        const mapped = mapFn(item);
+        if (mapped) items.push(mapped);
+      });
+      pageToken = body.nextPageToken || '';
+      if (!pageToken || items.length >= maxItems) break;
+    }
+    return items;
+  }
+
   function pickThumb(thumbs, prefer) {
     const order = prefer || ['maxres', 'standard', 'high', 'medium', 'default'];
     for (const size of order) {
@@ -535,17 +560,18 @@
     return first ? mapChannel(first) : null;
   }
 
-  /** Subscriptions for the signed-in user (50 per request). */
+  /** Subscriptions for the signed-in user, following nextPageToken. */
   async function mySubscriptions(limit) {
-    const body = await request('subscriptions', {
+    const max = limit || 200;
+    return paged('subscriptions', {
       part: 'snippet',
       mine: 'true',
-      maxResults: Math.min(50, limit || 50),
+      maxResults: 50,
       order: 'alphabetical',
-    });
-    return (body.items || []).map((item) => {
+    }, (item) => {
       const snippet = item.snippet || {};
       const channelId = snippet.resourceId && snippet.resourceId.channelId;
+      if (!channelId) return null;
       return {
         kind: 'yt',
         id: 'ytc:' + channelId,
@@ -556,17 +582,17 @@
         subscribers: 0,
         url: 'channel.html?c=ytc:' + channelId,
       };
-    });
+    }, { maxItems: max, maxPages: 4 });
   }
 
   /** Videos the user liked (requires OAuth). */
   async function myLikedVideos(limit) {
-    const body = await request('videos', {
+    const max = limit || 100;
+    return paged('videos', {
       part: 'snippet,contentDetails,statistics',
       myRating: 'like',
-      maxResults: Math.min(50, limit || 24),
-    });
-    return (body.items || []).map(mapVideo).filter(Boolean);
+      maxResults: 50,
+    }, mapVideo, { maxItems: max, maxPages: 2 });
   }
 
   /** The user's own playlists. */
@@ -587,8 +613,8 @@
   async function myAccount() {
     const channel = await myChannel();
     const [subscriptions, liked, playlists] = await Promise.all([
-      mySubscriptions(50).catch((err) => ({ error: err })),
-      myLikedVideos(24).catch((err) => ({ error: err })),
+      mySubscriptions(200).catch((err) => ({ error: err })),
+      myLikedVideos(100).catch((err) => ({ error: err })),
       myPlaylists(25).catch((err) => ({ error: err })),
     ]);
     return {
@@ -626,6 +652,7 @@
     // account (OAuth)
     myChannel,
     mySubscriptions,
+    paged,
     myLikedVideos,
     myPlaylists,
     myAccount,

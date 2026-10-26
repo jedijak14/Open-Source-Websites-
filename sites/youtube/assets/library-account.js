@@ -41,6 +41,30 @@
     return years + (years === 1 ? ' year ago' : ' years ago');
   }
 
+  /** First letter of a channel name, for when there is no picture. */
+  function initial(name) {
+    return String(name || '?').trim().charAt(0).toUpperCase() || '?';
+  }
+
+  /**
+   * YouTube avatar URLs 404 more often than you would think (deleted channels,
+   * privacy-blocked thumbnails). Rather than leaving a broken image, swap in an
+   * initial once the load fails.
+   */
+  function wireAvatars(root) {
+    if (!root) return;
+    Array.from(root.querySelectorAll('img[data-avatar]')).forEach((img) => {
+      img.addEventListener('error', () => {
+        const name = img.getAttribute('data-name') || '?';
+        const span = document.createElement('span');
+        span.className = 'avatar-fallback';
+        span.textContent = initial(name);
+        span.setAttribute('aria-hidden', 'true');
+        img.replaceWith(span);
+      }, { once: true });
+    });
+  }
+
   function signedIn() {
     return !!(auth() && auth().isSignedIn());
   }
@@ -112,10 +136,33 @@
       '</div></div></article>';
   }
 
+  /**
+   * A failed section is shown, not swallowed: an empty list looks like "it does
+   * not sync", which is exactly the wrong thing to tell someone.
+   */
+  function problemNote(message) {
+    const text = String(message || '');
+    let hint = 'The account request failed. Press Refresh account data to try again.';
+    if (/insufficient|permission|scope|forbidden|403/i.test(text)) {
+      hint = 'The token did not include read-only YouTube access. Sign out, sign in again and accept ' +
+        'the youtube.readonly permission.';
+    } else if (/quota/i.test(text)) {
+      hint = 'The daily YouTube Data API quota for this key is used up. It resets at midnight Pacific.';
+    } else if (/401|unauthor|expired/i.test(text)) {
+      hint = 'The access token expired. Sign in again.';
+    }
+    return '<div class="panel__note panel__note--warn" role="alert" style="margin-bottom:16px">' +
+      icon('flag', 'icon--xs') + '<span><strong>Subscriptions could not load.</strong> ' +
+      esc(hint) + (text ? ' <span class="panel__note-raw">(' + esc(text.slice(0, 140)) + ')</span>' : '') +
+      '</span></div>';
+  }
+
   function channelRow(c) {
+    const picture = c.avatar
+      ? '<img src="' + esc(c.avatar) + '" alt="" width="56" height="56" loading="lazy" data-avatar data-name="' + esc(c.name) + '">'
+      : '<span class="avatar-fallback" aria-hidden="true">' + esc(initial(c.name)) + '</span>';
     return '<div class="account-channel">' +
-      '<a href="channel.html?c=' + esc(c.id) + '">' +
-        '<img src="' + esc(c.avatar) + '" alt="" width="56" height="56" loading="lazy"></a>' +
+      '<a href="channel.html?c=' + esc(c.id) + '">' + picture + '</a>' +
       '<div class="account-channel__text">' +
         '<a class="account-channel__name" href="channel.html?c=' + esc(c.id) + '">' + esc(c.name) + '</a>' +
         '<div class="account-channel__meta">' + esc(c.about || '').slice(0, 120) + '</div>' +
@@ -158,13 +205,16 @@
         return;
       }
       const subs = data.subscriptions || [];
+      const failure = data.errors && data.errors.subscriptions;
       host.innerHTML =
+        (failure ? problemNote(failure) : '') +
         '<div class="panel__note" style="margin-bottom:16px">' + icon('user', 'icon--xs') +
-          ' ' + subs.length + ' subscriptions from <strong>' + esc(data.channel ? data.channel.name : 'your account') +
-          '</strong> · read-only access</div>' +
+          ' ' + subs.length + (subs.length === 200 ? '+' : '') + ' subscriptions from <strong>' +
+          esc(data.channel ? data.channel.name : 'your account') + '</strong> · read-only access</div>' +
         (subs.length
           ? '<div class="account-channel-list">' + subs.map(channelRow).join('') + '</div>'
           : signInPrompt('subscriptions'));
+      wireAvatars(host);
       return;
     }
 
@@ -177,11 +227,14 @@
         return;
       }
       const liked = data.liked || [];
-      host.innerHTML = '<div class="video-grid">' +
+      const failure = data.errors && data.errors.liked;
+      host.innerHTML = (failure ? problemNote(failure) : '') +
+        '<div class="video-grid">' +
         (liked.length
           ? liked.map(videoCard).join('')
           : '<div class="empty-state"><h2>No liked videos</h2><p>Nothing returned for this account.</p></div>') +
         '</div>';
+      wireAvatars(host);
       return;
     }
 
