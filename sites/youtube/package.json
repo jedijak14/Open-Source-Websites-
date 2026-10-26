@@ -2,7 +2,7 @@
   "name": "opentube-demo",
   "version": "1.0.0",
   "private": true,
-  "description": "OpenTube — an open-source video platform demo built with plain HTML, CSS and JavaScript",
+  "description": "OpenTube \u2014 an open-source video platform demo built with plain HTML, CSS and JavaScript",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -11,7 +11,8 @@
     "test": "node tests/youtube-api.test.mjs && node tests/auth.test.mjs && node tests/ui.test.mjs",
     "test:api": "node tests/youtube-api.test.mjs",
     "test:auth": "node tests/auth.test.mjs",
-    "test:ui": "node tests/ui.test.mjs"
+    "test:ui": "node tests/ui.test.mjs",
+    "build:vercel": "node scripts/build-pages.mjs && node scripts/build-vercel.mjs"
   },
   "devDependencies": {
     "jsdom": "^30.1.3"

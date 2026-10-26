@@ -10,3 +10,6 @@ node_modules/
 # Editor
 .vscode/
 .idea/
+
+# Vercel build output
+.vercel/
