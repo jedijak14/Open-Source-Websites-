@@ -7,8 +7,14 @@ It is part of the **Open Source Websites** collection: hand-built, dependency-fr
 recreations of familiar web products, using original code, copy and assets.
 
 ```
-node server.mjs          # builds the pages, serves on http://localhost:4321
+node server.mjs              # builds the pages, serves on http://localhost:4321
+./scripts/preview.sh         # same, but installs missing dev deps first
+PORT=4400 ./scripts/preview.sh
 ```
+
+`scripts/preview.sh` is the convenience entry point: it installs the dev
+dependency when `node_modules` is missing, refuses to start a second server if
+the port is already serving the app, then builds and serves.
 
 ---
 
@@ -48,6 +54,7 @@ sites/youtube/
 │   ├── partials/         header, icon sprite, menus, footer
 │   └── pages/            page bodies with a JSON meta header
 ├── scripts/
+│   ├── preview.sh        deps + build + serve (idempotent)
 │   ├── build-pages.mjs   src/ → static HTML
 │   ├── build-media.sh    thumbnails + clips via ffmpeg
 │   └── build-avatars.py  channel avatar SVGs
