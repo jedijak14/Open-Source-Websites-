@@ -1,0 +1,5 @@
+// OpenTube TV — root build file. The app has no third-party runtime
+// dependencies: plain Android widgets, java.net for HTTP and org.json for data.
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+}
