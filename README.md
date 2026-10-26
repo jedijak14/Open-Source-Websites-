@@ -11,7 +11,7 @@ CSS and JavaScript when you are not reaching for a framework or an SDK.
 
 | Site | What it is | Stack | Run |
 | --- | --- | --- | --- |
-| **[OpenTube](sites/youtube/)** | A video platform: feed, channels, search, library, comments and a custom player with chapters, captions and keyboard shortcuts | Static HTML/CSS/JS, Node static server, ffmpeg-generated media | `cd sites/youtube && node server.mjs` |
+| **[OpenTube](sites/youtube/)** | A video platform: feed, channels, search, library, comments and a custom player with chapters, captions and keyboard shortcuts. Runs on a bundled offline dataset, or on the real **YouTube Data API v3** with your own key | Static HTML/CSS/JS, Node static server, ffmpeg-generated media, YouTube Data API v3 | `cd sites/youtube && node server.mjs` |
 
 ## Conventions
 

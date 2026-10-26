@@ -37,6 +37,61 @@ the port is already serving the app, then builds and serves.
 Everything a user does (subscriptions, likes, saved videos, history, theme) is stored in
 `localStorage` under one key. There is no account system and no network calls.
 
+## Live YouTube data (optional)
+
+The site ships with a fictional dataset so it runs offline with no accounts, keys or
+network calls. It can also run on **real YouTube data** through the official
+[YouTube Data API v3](https://developers.google.com/youtube/v3), opened from the
+account menu → **Live YouTube data…**.
+
+What changes when live mode is on:
+
+| Area | Offline demo | Live YouTube |
+| --- | --- | --- |
+| Home | Curated fictional feed | `chart=mostPopular` for the chosen region |
+| Search | Local dataset matching | `search.list` + `videos.list`, plus channel results |
+| Channels | Dataset entry | `channels.list` by id/handle/name, uploads playlist |
+| Playback | Custom `<video>` player | Official YouTube embedded player (`youtube-nocookie.com`) |
+| Comments | Local + seeded | `commentThreads` (best effort) |
+| Chapters, captions, speed | Yes | No — those belong to the embed; use YouTube's own controls |
+
+### Setting it up
+
+1. In Google Cloud Console create a project and enable **YouTube Data API v3**.
+2. Create an API key and restrict it to **HTTP referrers** for the host you serve
+   this site from (add `http://localhost:4321/*` while developing).
+3. Open the account menu → **Live YouTube data…**, paste the key, press **Save & test**.
+
+The key is stored in `localStorage` under `opentube:youtube-key` and is only ever sent
+to `googleapis.com`. It is client-side, so treat it as public: use referrer
+restrictions and, if you deploy this, a key dedicated to the demo.
+
+### Quota
+
+The free allowance is 10,000 units/day. Trending and channel pages cost **1 unit**,
+a search costs **100**, so budget roughly 100 searches a day. Responses are cached in
+`sessionStorage` for 10 minutes, which also makes repeat navigation free. Quota and
+key errors are surfaced in the UI with an explanation and a one-click fall back to
+the offline dataset.
+
+### Design notes for the integration
+
+- `assets/youtube-api.js` is the whole client: URL building, normalisation to the same
+  video/channel shape the offline dataset uses, caching, and `ApiError` with a
+  machine-readable `reason`.
+- `assets/live.js` owns the UI: the connector modal, live rendering for feed/search/
+  channel/watch, and the embedded player. It decides *synchronously* whether a page is
+  live-owned (`claims()`), so demo clips keep the custom player even with live mode on.
+- Every failure path renders an explanation plus **Try again**, **API settings** and
+  **Use the offline demo** — live mode can never leave a blank page.
+
+### Verification note
+
+The build sandbox has no network route to `googleapis.com` or `youtube.com`, so the
+live path is covered by tests against a stubbed `fetch` (`tests/youtube-api.test.mjs`
+and the live sections of `tests/ui.test.mjs`) rather than by hitting the real API.
+Connecting a real key in a browser is the remaining manual step.
+
 ## Project layout
 
 ```
@@ -44,7 +99,9 @@ sites/youtube/
 ├── index.html · watch.html · channel.html · search.html · library.html · about.html
 ├── assets/
 │   ├── styles.css        design tokens + all layout (light/dark)
-│   ├── data.js           9 channels, 18 videos, comments
+│   ├── data.js           9 channels, 18 videos, comments (offline dataset)
+│   ├── youtube-api.js    YouTube Data API v3 client + normalisation
+│   ├── live.js           live mode: connector modal, live rendering, embed
 │   ├── app.js            router, rendering, player, comments
 │   ├── avatars/          generated channel avatars (SVG)
 │   ├── thumbs/           generated thumbnails (JPEG, 1280×720)
@@ -58,7 +115,9 @@ sites/youtube/
 │   ├── build-pages.mjs   src/ → static HTML
 │   ├── build-media.sh    thumbnails + clips via ffmpeg
 │   └── build-avatars.py  channel avatar SVGs
-├── tests/ui.test.mjs     jsdom UI checks (57 assertions)
+├── tests/
+│   ├── ui.test.mjs       jsdom UI checks, incl. live mode (80 assertions)
+│   └── youtube-api.test.mjs  API client against a stubbed fetch (59)
 ├── package.json          start / build / test scripts
 └── server.mjs            static server with byte-range support
 ```
@@ -88,7 +147,7 @@ gradient plus a sine chord, faded in and out). Clip lengths are read from
 
 ```bash
 npm install     # jsdom, devDependency only
-npm test        # boots the server, loads every page, drives the UI
+npm test        # API client suite, then the jsdom UI suite (139 checks)
 ```
 
 The suite (`tests/ui.test.mjs`) runs the real site in jsdom: it filters the feed,

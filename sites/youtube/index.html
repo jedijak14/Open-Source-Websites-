@@ -101,6 +101,7 @@
       </svg>
       <span class="masthead__word"><span>open</span><em>tube</em></span>
       <span class="masthead__sup">BETA</span>
+      <span class="live-pill" id="live-live-badge" hidden title="Live YouTube data">LIVE</span>
     </a>
   </div>
 
@@ -146,6 +147,7 @@
           Nothing is sent anywhere — all state stays in this browser.
         </div>
       </noscript>
+      <div class="live-banner" id="live-banner" hidden></div>
 <div class="hero" id="hero" role="link" tabindex="0" aria-label="Featured video"></div>
 
 <section id="resume-section" hidden>
@@ -197,6 +199,9 @@
   <a href="channel.html?c=nullbyte" role="menuitem"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-user"></use></svg> Your channel</a>
   <a href="library.html" role="menuitem"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-history"></use></svg> Your history</a>
   <div class="menu__sep"></div>
+  <button type="button" role="menuitem" data-action="live">
+    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> Live YouTube data…
+  </button>
   <button type="button" role="menuitem" data-action="theme"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-moon"></use></svg> Appearance: light / dark</button>
   <button type="button" role="menuitem" data-action="shortcuts"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-help"></use></svg> Keyboard shortcuts</button>
   <button type="button" role="menuitem" data-action="settings"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings-gear"></use></svg> Settings</button>
@@ -212,7 +217,79 @@
   <button type="button" role="menuitem" data-more-action="Report"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-flag"></use></svg> Report</button>
 </div>
 
+  <div class="modal-backdrop" id="live-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="live-title" aria-describedby="live-intro">
+    <div class="modal__head">
+      <h2 id="live-title">Connect live YouTube data</h2>
+      <button class="icon-btn" id="live-close" type="button" aria-label="Close">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"></use></svg>
+      </button>
+    </div>
 
+    <div class="modal__body">
+      <p id="live-intro">
+        OpenTube can render its feed, search, channels and player from the real
+        <strong>YouTube Data API v3</strong> instead of the offline demo dataset.
+      </p>
+
+      <ol class="modal__steps">
+        <li>Create a key in the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud console</a> and enable <em>YouTube Data API v3</em>.</li>
+        <li>Restrict the key to <em>HTTP referrers</em> for this site (and <code>localhost</code>) so it cannot be used elsewhere.</li>
+        <li>Paste it below. It is stored in this browser only and sent to <code>googleapis.com</code> — never to any other host.</li>
+      </ol>
+
+      <label class="modal__label" for="live-key">API key</label>
+      <div class="modal__row">
+        <input id="live-key" type="text" inputmode="text" autocomplete="off" spellcheck="false"
+               placeholder="AIza…" aria-describedby="live-quota">
+        <button class="btn-pill btn-pill--brand" id="live-save" type="button">Save &amp; test</button>
+      </div>
+
+      <div class="modal__row modal__row--between">
+        <div>
+          <strong style="font-size:14px">Use live data</strong>
+          <div style="font-size:12px;color:var(--text-secondary)">Off means the offline demo dataset.</div>
+        </div>
+        <button class="switch" id="live-toggle" type="button" role="switch" aria-checked="false" aria-label="Use live YouTube data"></button>
+      </div>
+
+      <label class="modal__label" for="live-region">Trending region</label>
+      <select id="live-region" class="modal__select">
+        <option value="US">United States</option>
+        <option value="GB">United Kingdom</option>
+        <option value="DE">Germany</option>
+        <option value="JP">Japan</option>
+        <option value="KR">South Korea</option>
+        <option value="IN">India</option>
+        <option value="BR">Brazil</option>
+        <option value="AU">Australia</option>
+      </select>
+
+      <p class="modal__note" id="live-quota">
+        Quota: trending and channel pages cost <strong>1 unit</strong> each; a search costs
+        <strong>100</strong>. The free allowance is 10,000 units per day, so roughly 100 searches.
+        Responses are cached for 10 minutes per session.
+      </p>
+
+      <p class="modal__note">
+        Playback uses YouTube's official embedded player. The custom player, chapters and
+        transcript captions remain available for the offline demo clips.
+      </p>
+
+      <p class="modal__status" id="live-status" hidden></p>
+    </div>
+
+    <div class="modal__actions">
+      <button class="btn-pill" id="live-clear" type="button" hidden>Disconnect key</button>
+      <span style="flex:1"></span>
+      <button class="btn-pill" id="live-cancel" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+
+  <script src="assets/youtube-api.js"></script>
+  <script src="assets/live.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/app.js"></script>
 </body>

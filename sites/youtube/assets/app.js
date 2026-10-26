@@ -451,6 +451,9 @@
             Store.set('theme', next);
             applyTheme();
             toast(next === 'dark' ? 'Dark theme on' : 'Light theme on');
+          } else if (action === 'live') {
+            closeMenus();
+            window.OTLive ? window.OTLive.open() : toast('Live mode is unavailable');
           } else if (action === 'shortcuts') {
             toast('Press ? for the shortcut list');
           } else if (action === 'settings') {
@@ -1428,6 +1431,17 @@
     document.body.dataset.theater = Store.get('theater') ? 'on' : 'off';
 
     const page = document.body.dataset.page;
+
+    // Live YouTube mode owns the feed/search/channel pages and live watch pages.
+    const live = window.OTLive;
+    if (live) {
+      live.init();
+      if (live.claims(page)) {
+        live.intercept(page);
+        return;
+      }
+    }
+
     if (page === 'home') initHome();
     if (page === 'watch') initWatch();
     if (page === 'channel') initChannel();

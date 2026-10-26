@@ -49,7 +49,8 @@ function polyfills(window) {
   window.scrollTo = () => {};
 }
 
-async function load(page, seed) {
+async function load(page, seed, opts) {
+  opts = opts || {};
   const vc = new VirtualConsole();
   const errors = [];
   vc.on('jsdomError', (e) => errors.push('jsdomError: ' + e.message));
@@ -62,6 +63,9 @@ async function load(page, seed) {
     beforeParse(window) {
       polyfills(window);
       if (seed) window.localStorage.setItem('opentube:v1', JSON.stringify(seed));
+      if (opts.key) window.localStorage.setItem('opentube:youtube-key', opts.key);
+      if (opts.live) window.localStorage.setItem('opentube:live', JSON.stringify(opts.live));
+      if (opts.fetch) window.fetch = opts.fetch;
     },
   });
   // app.js assigns window.OT only after boot() has finished rendering, so this
@@ -246,6 +250,138 @@ async function run() {
     check('keys: / focuses the search box', doc.activeElement?.id === 'search-input');
     doc.dispatchEvent(new win.KeyboardEvent('keydown', { key: 'c', bubbles: true }));
     check('keys: c toggles captions', doc.querySelector('#cc-btn').getAttribute('aria-pressed') === 'true');
+    win.close();
+  }
+
+  // ------------------------------------------------- mismatch: live YouTube mode
+  // The sandbox cannot reach googleapis.com, so these inject a stubbed fetch.
+  {
+    const LIVE = { enabled: true, region: 'GB' };
+    const trending = [
+      { id: 'ytAAA', title: 'Live one &amp; only', views: 2500000, durationLabel: '4:13' },
+      { id: 'ytBBB', title: 'Second live video', views: 8400, durationLabel: '12:00' },
+    ];
+    const payload = {
+      items: trending.map((t, i) => ({
+        id: t.id.slice(2),
+        snippet: {
+          title: t.title,
+          description: 'from the api',
+          channelId: 'UCxx',
+          channelTitle: 'API Channel',
+          publishedAt: new Date(Date.now() - (i + 2) * 86400000).toISOString(),
+          thumbnails: { high: { url: 'https://i.ytimg.com/vi/x/hq.jpg' } },
+        },
+        contentDetails: { duration: i === 1 ? 'PT12M' : 'PT4M13S' },
+        statistics: { viewCount: String(t.views), likeCount: '10' },
+      })),
+    };
+
+    const { win, doc, errors } = await load('index.html', SEED, {
+      key: 'STUB_KEY',
+      live: LIVE,
+      fetch: async () => ({ ok: true, status: 200, json: async () => payload }),
+    });
+    check('live: banner shown', !doc.querySelector('#live-banner').hidden);
+    check('live: masthead LIVE pill', !doc.querySelector('#live-live-badge').hidden);
+    check('live: heading switches to trending',
+      doc.querySelector('#feed-heading')?.textContent === 'Trending on YouTube',
+      doc.querySelector('#feed-heading')?.textContent);
+    check('live: two API cards rendered', doc.querySelectorAll('#feed-grid .card').length === 2,
+      doc.querySelectorAll('#feed-grid .card').length + '');
+    check('live: titles decoded from the API',
+      (doc.querySelector('#feed-grid .card__title')?.textContent || '').includes('Live one & only'),
+      doc.querySelector('#feed-grid .card__title')?.textContent);
+    check('live: YouTube badge on cards', doc.querySelectorAll('.card__badge--yt').length === 2);
+    check('live: durations from ISO 8601',
+      (doc.querySelector('#feed-grid .card__duration')?.textContent || '') === '4:13',
+      doc.querySelector('#feed-grid .card__duration')?.textContent);
+    check('live: region chips replace categories',
+      doc.querySelectorAll('#chips [data-region]').length === 8);
+    check('live: no script errors', errors.length === 0, errors.join(' | '));
+    win.close();
+  }
+
+  {
+    const { win, doc } = await load('watch.html?v=yt:dQw4w9WgXcQ', SEED, {
+      key: 'STUB_KEY',
+      live: { enabled: true, region: 'US' },
+      fetch: async (url) => {
+        if (String(url).includes('/commentThreads')) {
+          return { ok: true, status: 200, json: async () => ({ items: [] }) };
+        }
+        if (String(url).includes('chart=mostPopular')) {
+          return { ok: true, status: 200, json: async () => ({ items: [] }) };
+        }
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: [{
+              id: 'dQw4w9WgXcQ',
+              snippet: {
+                title: 'A real YouTube video',
+                description: 'Description from the API',
+                channelId: 'UCrealchannel1234567890',
+                channelTitle: 'Real Channel',
+                publishedAt: '2026-01-01T00:00:00Z',
+                thumbnails: { high: { url: 'https://i.ytimg.com/vi/dQw/hq.jpg' } },
+                tags: ['api'],
+              },
+              contentDetails: { duration: 'PT3M' },
+              statistics: { viewCount: '999', likeCount: '7' },
+            }],
+          }),
+        };
+      },
+    });
+    const iframe = doc.querySelector('#player iframe');
+    check('live watch: official embed used', !!iframe);
+    check('live watch: private-domain embed', /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/.test(iframe?.getAttribute('src') || ''),
+      iframe?.getAttribute('src'));
+    check('live watch: custom player removed', !doc.querySelector('#play-toggle'));
+    check('live watch: title from the API', doc.querySelector('#watch-title')?.textContent === 'A real YouTube video');
+    check('live watch: like count from the API',
+      (doc.querySelector('#like-btn')?.textContent || '').trim() === '7',
+      doc.querySelector('#like-btn')?.textContent);
+    check('live watch: links out to YouTube', !!doc.querySelector('a[href*="youtube.com/watch?v=dQw4w9WgXcQ"]'));
+    win.close();
+  }
+
+  {
+    const { win, doc } = await load('index.html', SEED, {
+      key: 'STUB_KEY',
+      live: { enabled: true, region: 'US' },
+      fetch: async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: { errors: [{ reason: 'quotaExceeded' }] } }),
+      }),
+    });
+    check('live error: quota panel shown', !!doc.querySelector('.live-error'));
+    check('live error: explains quota', /quota/i.test(doc.querySelector('.live-error')?.textContent || ''),
+      doc.querySelector('.live-error h2')?.textContent);
+    check('live error: offers the offline demo', !!doc.querySelector('#live-fallback'));
+    win.close();
+  }
+
+  {
+    // live mode off: the offline demo dataset must still drive the page
+    const { win, doc } = await load('index.html');
+    check('live off: demo dataset used', doc.querySelectorAll('#feed-grid .card').length === 18);
+    check('live off: no live banner', doc.querySelector('#live-banner').hidden);
+    win.close();
+  }
+
+  {
+    const { win, doc } = await load('about.html');
+    const opener = doc.querySelector('[data-action="live"]');
+    check('live: account menu exposes the connector', !!opener);
+    opener.dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 50));
+    check('live: modal opens', doc.querySelector('#live-modal').hidden === false);
+    doc.querySelector('#live-cancel').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    check('live: modal closes', doc.querySelector('#live-modal').hidden === true);
     win.close();
   }
 
