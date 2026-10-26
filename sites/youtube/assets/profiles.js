@@ -501,7 +501,7 @@
     const profiles = getAccountProfiles();
     const activeId = getActiveProfileId();
     
-    let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000;">';
+    let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000; display: block;">';
     html += '<div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">';
     html += '<div class="profile-modal__head">';
     html += '<div class="profile-modal__logo">';
@@ -546,7 +546,7 @@
   }
 
   function renderSignInPrompt() {
-    let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000;">';
+    let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000; display: block;">';
     html += '<div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">';
     html += '<div class="profile-modal__head">';
     html += '<div class="profile-modal__logo">';
