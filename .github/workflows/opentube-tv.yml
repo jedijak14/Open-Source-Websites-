@@ -62,6 +62,10 @@ jobs:
           if [ -n "$TV_API_KEY" ]; then EXTRA="$EXTRA -PopentubeApiKey=$TV_API_KEY"; fi
           gradle :app:assembleDebug --no-daemon --console=plain --stacktrace $EXTRA > build-log.txt 2>&1
           status=$?
+          # Lint catches the API-level and manifest mistakes that a compiler
+          # cannot see, so its text report is published alongside the APK.
+          gradle :app:lintDebug --no-daemon --console=plain >> build-log.txt 2>&1 || true
+          cp app/build/reports/lint-results-debug.txt lint-report.txt 2>/dev/null || true
           echo "---- build log tail ----"
           tail -n 120 build-log.txt
           exit $status
@@ -84,7 +88,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           git config user.name "opentube-ci"
           git config user.email "ci@opentube.invalid"
-          git add -f sites/youtube/tv/dist sites/youtube/tv/build-log.txt
+          git add -f sites/youtube/tv/dist sites/youtube/tv/build-log.txt sites/youtube/tv/lint-report.txt
           if git diff --cached --quiet; then
             echo "nothing to publish"
           else

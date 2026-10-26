@@ -18,6 +18,15 @@ the port is already serving the app, then builds and serves.
 
 ---
 
+## Android TV app
+
+There is a native TV client in [`tv/`](tv/): Java, no third-party runtime dependencies, D-pad
+first, with a code-based Google sign-in, an on-device recommender, captions and a music layout.
+
+**Install:** [`tv/dist/OpenTube-TV.apk`](tv/dist/OpenTube-TV.apk) (debug-signed, sideload with
+`adb install -r`, or *Downloader* on a Fire TV). Details, remote map and limitations:
+[`tv/README.md`](tv/README.md).
+
 ## What is implemented
 
 | Area | Details |

@@ -12,6 +12,7 @@ CSS and JavaScript when you are not reaching for a framework or an SDK.
 | Site | What it is | Stack | Run |
 | --- | --- | --- | --- |
 | **[OpenTube](sites/youtube/)** | A video platform: feed, channels, search, library, comments and a custom player with chapters, captions and keyboard shortcuts. Runs on a bundled offline dataset, or on the real **YouTube Data API v3** with your own key | Static HTML/CSS/JS, Node static server, ffmpeg-generated media, YouTube Data API v3 | `cd sites/youtube && node server.mjs` |
+| **[OpenTube for Android TV](sites/youtube/tv/)** | The same platform as a native TV app: D-pad everywhere, a code-based Google sign-in, an on-device recommender, captions and a music layout. **APK:** [`OpenTube-TV.apk`](sites/youtube/tv/dist/OpenTube-TV.apk) | Java, no third-party runtime dependencies, Gradle + GitHub Actions | `adb install -r sites/youtube/tv/dist/OpenTube-TV.apk` |
 
 ## Conventions
 
@@ -36,6 +37,7 @@ sites/
     src/              layout, partials, page bodies
     scripts/          page/build/media tooling
     server.mjs        static server with byte-range support
+    tv/               Android TV / Fire TV client, built to dist/OpenTube-TV.apk
 ```
 
 ## License
