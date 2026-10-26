@@ -92,6 +92,50 @@ live path is covered by tests against a stubbed `fetch` (`tests/youtube-api.test
 and the live sections of `tests/ui.test.mjs`) rather than by hitting the real API.
 Connecting a real key in a browser is the remaining manual step.
 
+## Google account & watch history
+
+`settings.html` connects the site to **your** YouTube account, and to nothing else.
+
+| What | How | Scope |
+| --- | --- | --- |
+| Your channel, subscriptions, liked videos, playlists | Google Identity Services token flow, called from the browser | `youtube.readonly` |
+| Watch history | **Google Takeout import** — the API does not expose it | n/a |
+
+**Watch history is not available through the YouTube Data API.** No key and no OAuth scope can
+read it; Google keeps it behind Takeout only. Settings → Watch history accepts
+`watch-history.json` (or the HTML export), filters out ad views and non-video entries, and the
+result appears in Library → History. This is a limit of Google's platform, not a shortcut here.
+
+Sign-in uses the browser-only token flow, so there is **no client secret** to leak and no server
+component: paste an OAuth client ID, add this origin under *Authorised JavaScript origins*, and
+sign in. The access token is kept in `sessionStorage` for the tab and revoked on sign-out.
+
+## No ads, no trackers
+
+The site renders no advertising and loads no third-party analytics, fonts or CDNs. `vercel.json`
+ships a Content-Security-Policy that permits only this origin plus `googleapis.com`,
+`accounts.google.com` and the YouTube embed frame, so an injected ad script could not load even
+if one were added. Settings has a live network audit that lists every third-party origin the page
+actually contacted.
+
+The one honest exception: ads YouTube plays **inside its own embedded player** cannot be removed
+by this site — that is YouTube's player and its terms. Only YouTube Premium removes those.
+
+## Deploying to Vercel
+
+The site is static, so no build step is required at the edge. `vercel.json` sets clean URLs, long
+cache lifetimes for assets, and the security headers above.
+
+```bash
+# project root: sites/youtube
+vercel --prod
+```
+
+Set the project's **Root Directory** to `sites/youtube` and leave the framework preset as
+*Other*. For Google sign-in, add the deployment's origin (e.g.
+`https://opentube.vercel.app`) to the OAuth client's authorised JavaScript origins, and add it to
+the API key's HTTP-referrer restrictions.
+
 ## Project layout
 
 ```
@@ -101,7 +145,10 @@ sites/youtube/
 │   ├── styles.css        design tokens + all layout (light/dark)
 │   ├── data.js           9 channels, 18 videos, comments (offline dataset)
 │   ├── youtube-api.js    YouTube Data API v3 client + normalisation
+│   ├── auth.js           Google sign-in (GIS token flow) + Takeout importer
 │   ├── live.js           live mode: connector modal, live rendering, embed
+│   ├── library-account.js  account-backed Library tabs
+│   ├── settings.js       settings page controller
 │   ├── app.js            router, rendering, player, comments
 │   ├── avatars/          generated channel avatars (SVG)
 │   ├── thumbs/           generated thumbnails (JPEG, 1280×720)
@@ -116,8 +163,9 @@ sites/youtube/
 │   ├── build-media.sh    thumbnails + clips via ffmpeg
 │   └── build-avatars.py  channel avatar SVGs
 ├── tests/
-│   ├── ui.test.mjs       jsdom UI checks, incl. live mode (80 assertions)
-│   └── youtube-api.test.mjs  API client against a stubbed fetch (59)
+│   ├── ui.test.mjs       jsdom UI checks, incl. live + settings (101)
+│   ├── youtube-api.test.mjs  API client against a stubbed fetch (59)
+│   └── auth.test.mjs     sign-in lifecycle + Takeout parser (38)
 ├── package.json          start / build / test scripts
 └── server.mjs            static server with byte-range support
 ```
@@ -147,7 +195,7 @@ gradient plus a sine chord, faded in and out). Clip lengths are read from
 
 ```bash
 npm install     # jsdom, devDependency only
-npm test        # API client suite, then the jsdom UI suite (139 checks)
+npm test        # API client, auth, then jsdom UI suites (198 checks)
 ```
 
 The suite (`tests/ui.test.mjs`) runs the real site in jsdom: it filters the feed,

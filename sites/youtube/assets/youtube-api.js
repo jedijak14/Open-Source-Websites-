@@ -17,6 +17,7 @@
 
   const BASE = 'https://www.googleapis.com/youtube/v3';
   const KEY_STORAGE = 'opentube:youtube-key';
+  let accessToken = '';
   const CACHE_STORAGE = 'opentube:youtube-cache';
   const CACHE_TTL = 10 * 60 * 1000;
   const CACHE_MAX_ENTRIES = 60;
@@ -67,6 +68,19 @@
 
   function hasKey() {
     return getKey().length > 0;
+  }
+
+  /**
+   * Sets the OAuth access token used for account-scoped endpoints
+   * (mine=true, myRating=like, subscriptions). Passing '' signs out.
+   */
+  function setAccessToken(token) {
+    accessToken = String(token || '');
+    clearCache();
+  }
+
+  function hasAccessToken() {
+    return accessToken.length > 0;
   }
 
   function clearCache() {
@@ -150,12 +164,15 @@
         url.searchParams.set(key, String(value));
       }
     });
-    url.searchParams.set('key', getKey());
+    const key = getKey();
+    if (key) url.searchParams.set('key', key);
     return url.toString();
   }
 
   async function request(endpoint, params) {
-    if (!hasKey()) throw new ApiError(REASONS.missingKey, { reason: 'missingKey', endpoint });
+    if (!hasKey() && !hasAccessToken()) {
+      throw new ApiError(REASONS.missingKey, { reason: 'missingKey', endpoint });
+    }
 
     const url = buildUrl(endpoint, params);
     const cached = cacheGet(url);
@@ -168,7 +185,9 @@
 
     let response;
     try {
-      response = await fetcher(url, { headers: { Accept: 'application/json' } });
+      const headers = { Accept: 'application/json' };
+      if (accessToken) headers.Authorization = 'Bearer ' + accessToken;
+      response = await fetcher(url, { headers });
     } catch (err) {
       throw new ApiError(REASONS.network, { reason: 'network', endpoint });
     }
@@ -483,12 +502,109 @@
     });
   }
 
+  /* ------------------------------------------------------- account (OAuth) */
+
+  function mapPlaylist(item) {
+    const snippet = item.snippet || {};
+    return {
+      id: item.id,
+      title: decodeEntities(snippet.title || ''),
+      description: decodeEntities(snippet.description || ''),
+      count: Number(item.contentDetails && item.contentDetails.itemCount) || 0,
+      poster: pickThumb(snippet.thumbnails),
+      published: snippet.publishedAt || '',
+      url: 'https://www.youtube.com/playlist?list=' + item.id,
+    };
+  }
+
+  /** The signed-in user's own channel. */
+  async function myChannel() {
+    const body = await request('channels', {
+      part: 'snippet,statistics,contentDetails',
+      mine: 'true',
+      maxResults: 1,
+    });
+    const first = (body.items || [])[0];
+    return first ? mapChannel(first) : null;
+  }
+
+  /** Subscriptions for the signed-in user (50 per request). */
+  async function mySubscriptions(limit) {
+    const body = await request('subscriptions', {
+      part: 'snippet',
+      mine: 'true',
+      maxResults: Math.min(50, limit || 50),
+      order: 'alphabetical',
+    });
+    return (body.items || []).map((item) => {
+      const snippet = item.snippet || {};
+      const channelId = snippet.resourceId && snippet.resourceId.channelId;
+      return {
+        kind: 'yt',
+        id: 'ytc:' + channelId,
+        channelId,
+        name: decodeEntities(snippet.title || ''),
+        avatar: pickThumb(snippet.thumbnails, ['high', 'medium', 'default']),
+        about: decodeEntities(snippet.description || ''),
+        subscribers: 0,
+        url: 'channel.html?c=ytc:' + channelId,
+      };
+    });
+  }
+
+  /** Videos the user liked (requires OAuth). */
+  async function myLikedVideos(limit) {
+    const body = await request('videos', {
+      part: 'snippet,contentDetails,statistics',
+      myRating: 'like',
+      maxResults: Math.min(50, limit || 24),
+    });
+    return (body.items || []).map(mapVideo).filter(Boolean);
+  }
+
+  /** The user's own playlists. */
+  async function myPlaylists(limit) {
+    const body = await request('playlists', {
+      part: 'snippet,contentDetails',
+      mine: 'true',
+      maxResults: Math.min(50, limit || 25),
+    });
+    return (body.items || []).map(mapPlaylist);
+  }
+
+  /**
+   * One call that assembles everything the Library page needs.
+   * Each section is independent: a failure in one (e.g. a disabled comments
+   * permission) must not blank the others.
+   */
+  async function myAccount() {
+    const channel = await myChannel();
+    const [subscriptions, liked, playlists] = await Promise.all([
+      mySubscriptions(50).catch((err) => ({ error: err })),
+      myLikedVideos(24).catch((err) => ({ error: err })),
+      myPlaylists(25).catch((err) => ({ error: err })),
+    ]);
+    return {
+      channel,
+      subscriptions: Array.isArray(subscriptions) ? subscriptions : [],
+      liked: Array.isArray(liked) ? liked : [],
+      playlists: Array.isArray(playlists) ? playlists : [],
+      errors: {
+        subscriptions: subscriptions.error ? subscriptions.error.message : null,
+        liked: liked.error ? liked.error.message : null,
+        playlists: playlists.error ? playlists.error.message : null,
+      },
+    };
+  }
+
   global.OTYouTube = {
     ApiError,
     // configuration
     getKey,
     setKey,
     hasKey,
+    setAccessToken,
+    hasAccessToken,
     clearCache,
     // endpoints
     testConnection,
@@ -500,9 +616,16 @@
     resolveChannel,
     channelUploads,
     comments,
+    // account (OAuth)
+    myChannel,
+    mySubscriptions,
+    myLikedVideos,
+    myPlaylists,
+    myAccount,
     // helpers (exported so the tests can pin the edge cases)
     mapVideo,
     mapChannel,
+    mapPlaylist,
     decodeEntities,
     isoDurationToSeconds,
     relativeTime,

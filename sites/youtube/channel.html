@@ -8,7 +8,6 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <script>
     // Resolve the theme before first paint so there is no flash of the wrong palette.
     (function () {
@@ -183,12 +182,18 @@
   <a href="channel.html?c=nullbyte" role="menuitem"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-user"></use></svg> Your channel</a>
   <a href="library.html" role="menuitem"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-history"></use></svg> Your history</a>
   <div class="menu__sep"></div>
+  <a href="settings.html#account" role="menuitem">
+    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-user"></use></svg> Connect Google account
+  </a>
+  <a href="settings.html#api-key" role="menuitem">
+    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> API key &amp; live data
+  </a>
   <button type="button" role="menuitem" data-action="live">
-    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-globe"></use></svg> Live YouTube data…
+    <svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings-gear"></use></svg> Quick connect…
   </button>
   <button type="button" role="menuitem" data-action="theme"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-moon"></use></svg> Appearance: light / dark</button>
   <button type="button" role="menuitem" data-action="shortcuts"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-help"></use></svg> Keyboard shortcuts</button>
-  <button type="button" role="menuitem" data-action="settings"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings-gear"></use></svg> Settings</button>
+  <a href="settings.html" role="menuitem"><svg class="icon icon--sm" aria-hidden="true"><use href="#i-settings-gear"></use></svg> Settings</a>
   <div class="menu__sep"></div>
   <a href="about.html" role="menuitem">About OpenTube</a>
 </div>
@@ -273,8 +278,11 @@
 
 
   <script src="assets/youtube-api.js"></script>
+  <script src="assets/auth.js"></script>
   <script src="assets/live.js"></script>
+  <script src="assets/library-account.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/settings.js"></script>
 </body>
 </html>

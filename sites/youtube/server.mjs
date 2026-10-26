@@ -99,6 +99,15 @@ const server = http.createServer(async (req, res) => {
 
   const headers = {
     'Content-Type': type,
+    'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; " +
+      "frame-ancestors 'none'; form-action 'self'; " +
+      "script-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+      "style-src 'self' 'unsafe-inline'; " +
+      "img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://yt3.ggpht.com " +
+      'https://yt3.googleusercontent.com; media-src \'self\'; font-src \'self\'; ' +
+      "connect-src 'self' https://www.googleapis.com https://accounts.google.com; " +
+      'frame-src https://www.youtube-nocookie.com https://www.youtube.com',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Accept-Ranges': 'bytes',
     ETag: etag,
     'Last-Modified': info.mtime.toUTCString(),

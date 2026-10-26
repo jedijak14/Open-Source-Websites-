@@ -1346,6 +1346,14 @@
     const tab = params().get('tab') || 'history';
     qsa('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
 
+    // Account-backed tabs (subscriptions, liked, imported history) are owned by
+    // library-account.js when the data exists; otherwise the demo renders them.
+    const account = window.OTLibraryAccount;
+    if (account && account.handles(tab)) {
+      account.render(tab);
+      return;
+    }
+
     function rows(list, withDate) {
       if (!list.length) return '';
       return list.map((v) => {
@@ -1379,6 +1387,7 @@
       } else if (tab === 'subs') {
         const list = Store.get('subs').filter(videoChannelExists);
         title = 'Subscriptions';
+
         html = list.length
           ? '<div class="chip-row">' + list.map((s) => {
               const c = channel(s);
@@ -1387,6 +1396,16 @@
             }).join('') + '</div><div class="section-head"><h2>Latest from your channels</h2></div><div class="video-grid" id="subs-grid"></div>'
           : empty('user', 'No subscriptions', 'Subscribe to a channel and their uploads will appear here.');
       }
+      // The offline demo has its own subscriptions; make the real account
+      // discoverable too instead of hiding the option behind settings.
+      const connected = window.OTLibraryAccount && window.OTLibraryAccount.signedIn();
+      if (tab === 'subs' && !connected) {
+        html = '<div class="panel__note" style="margin-bottom:16px">' + icon('user', 'icon--xs') +
+          ' Want the subscriptions from your YouTube account? ' +
+          '<a href="settings.html#account">Connect Google</a> — read-only access, ' +
+          'stored in this browser.</div>' + html;
+      }
+
       byId('library-title').textContent = title;
       host.innerHTML = html;
       if (tab === 'subs' && Store.get('subs').length) {
@@ -1431,6 +1450,12 @@
     document.body.dataset.theater = Store.get('theater') ? 'on' : 'off';
 
     const page = document.body.dataset.page;
+    const done = () => {
+      // Explicit readiness flag: window.OT exists as soon as this file is parsed,
+      // which is before boot() has rendered anything.
+      window.OT.ready = true;
+      document.documentElement.dataset.booted = 'true';
+    };
 
     // Live YouTube mode owns the feed/search/channel pages and live watch pages.
     const live = window.OTLive;
@@ -1438,6 +1463,7 @@
       live.init();
       if (live.claims(page)) {
         live.intercept(page);
+        done();
         return;
       }
     }
@@ -1447,6 +1473,7 @@
     if (page === 'channel') initChannel();
     if (page === 'search') initSearch();
     if (page === 'library') initLibrary();
+    done();
   }
 
   if (document.readyState === 'loading') {
@@ -1456,5 +1483,12 @@
   }
 
   // expose a small surface for debugging in the console
-  window.OT = { Store, videos: D.videos, channels: D.channels, toast, seek: (s) => playerApi && playerApi.seekTo(s) };
+  window.OT = {
+    Store,
+    videos: D.videos,
+    channels: D.channels,
+    toast,
+    seek: (s) => playerApi && playerApi.seekTo(s),
+    ready: false,
+  };
 })();

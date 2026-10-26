@@ -8,8 +8,9 @@
   "scripts": {
     "start": "node server.mjs",
     "build": "node scripts/build-pages.mjs",
-    "test": "node tests/youtube-api.test.mjs && node tests/ui.test.mjs",
+    "test": "node tests/youtube-api.test.mjs && node tests/auth.test.mjs && node tests/ui.test.mjs",
     "test:api": "node tests/youtube-api.test.mjs",
+    "test:auth": "node tests/auth.test.mjs",
     "test:ui": "node tests/ui.test.mjs"
   },
   "devDependencies": {

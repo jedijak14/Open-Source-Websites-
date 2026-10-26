@@ -66,16 +66,17 @@ async function load(page, seed, opts) {
       if (opts.key) window.localStorage.setItem('opentube:youtube-key', opts.key);
       if (opts.live) window.localStorage.setItem('opentube:live', JSON.stringify(opts.live));
       if (opts.fetch) window.fetch = opts.fetch;
+      if (opts.pre) opts.pre(window);
     },
   });
   // app.js assigns window.OT only after boot() has finished rendering, so this
   // is a reliable "page is ready" signal — no fixed sleeps to race against.
   const deadline = Date.now() + 10000;
-  while (Date.now() < deadline && !dom.window.OT) {
+  while (Date.now() < deadline && !(dom.window.OT && dom.window.OT.ready)) {
     await new Promise((r) => setTimeout(r, 25));
   }
-  if (!dom.window.OT) {
-    errors.push('boot timeout: window.OT was never assigned');
+  if (!(dom.window.OT && dom.window.OT.ready)) {
+    errors.push('boot timeout: boot() never signalled readiness');
   }
   return { dom, doc: dom.window.document, win: dom.window, errors };
 }
@@ -382,6 +383,119 @@ async function run() {
     check('live: modal opens', doc.querySelector('#live-modal').hidden === false);
     doc.querySelector('#live-cancel').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
     check('live: modal closes', doc.querySelector('#live-modal').hidden === true);
+    win.close();
+  }
+
+  // ------------------------------------------------- settings & account
+  {
+    const { win, doc, errors } = await load('settings.html');
+    check('settings: page renders', !!doc.querySelector('#api-key'));
+    check('settings: key field present', !!doc.querySelector('#settings-key'));
+    check('settings: account section present', !!doc.querySelector('#account'));
+    check('settings: history import present', !!doc.querySelector('#settings-history-file'));
+    check('settings: ads section lists guarantees', doc.querySelectorAll('.guarantee li').length === 5);
+    check('settings: origin shown for OAuth setup',
+      (doc.querySelector('#client-origin')?.textContent || '').includes('127.0.0.1'),
+      doc.querySelector('#client-origin')?.textContent);
+    check('settings: no script errors', errors.length === 0, errors.join(' | '));
+    win.close();
+  }
+
+  {
+    // saving a key runs a real 1-unit check against the (stubbed) API
+    let tested = 0;
+    const { win, doc } = await load('settings.html', null, {
+      fetch: async (url) => {
+        if (String(url).includes('chart=mostPopular')) {
+          tested += 1;
+          return { ok: true, status: 200, json: async () => ({ items: [
+            { snippet: { title: 'Sample &amp; co' }, id: 'x', contentDetails: { duration: 'PT1M' },
+              statistics: { viewCount: '1' } },
+          ] }) };
+        }
+        return { ok: true, status: 200, json: async () => ({ items: [] }) };
+      },
+    });
+    const input = doc.querySelector('#settings-key');
+    input.value = 'AIzaTESTKEY';
+    doc.querySelector('#settings-key-save').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    await settle(() => /Sample|quota|did not work/i.test(doc.querySelector('#settings-key-status').textContent || ''));
+    check('settings: key save calls the API once', tested === 1, String(tested));
+    check('settings: key stored', win.localStorage.getItem('opentube:youtube-key') === 'AIzaTESTKEY');
+    check('settings: success message names the sample',
+      /Sample & co/.test(doc.querySelector('#settings-key-status').textContent || ''),
+      doc.querySelector('#settings-key-status').textContent);
+    check('settings: live mode switched on',
+      JSON.parse(win.localStorage.getItem('opentube:live') || '{}').enabled === true);
+    win.close();
+  }
+
+  {
+    const { win, doc } = await load('settings.html', null, {
+      fetch: async () => ({ ok: false, status: 403,
+        json: async () => ({ error: { errors: [{ reason: 'quotaExceeded' }] } }) }),
+    });
+    doc.querySelector('#settings-key').value = 'bad';
+    doc.querySelector('#settings-key-save').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    await settle(() => /quota|did not work/i.test(doc.querySelector('#settings-key-status').textContent || ''));
+    const msg = doc.querySelector('#settings-key-status').textContent || '';
+    check('settings: quota error surfaced', /quota/i.test(msg), msg.slice(0, 80));
+    check('settings: error is styled as an error',
+      doc.querySelector('#settings-key-status').dataset.tone === 'error');
+    win.close();
+  }
+
+  {
+    // sign-in without a client id must explain the next step, not fail silently
+    const { win, doc } = await load('settings.html');
+    doc.querySelector('#account-signin').dispatchEvent(new win.MouseEvent('click', { bubbles: true }));
+    await settle(() => !doc.querySelector('#settings-account-status').hidden);
+    const msg = doc.querySelector('#settings-account-status').textContent || '';
+    check('settings: sign-in explains the missing client id', /client id/i.test(msg), msg.slice(0, 90));
+    check('settings: sign-in failure styled as error',
+      doc.querySelector('#settings-account-status').dataset.tone === 'error');
+    win.close();
+  }
+
+  {
+    // imported history drives the Library (Google exposes none of it via API)
+    const seedTakeout = JSON.stringify({
+      importedAt: '2026-10-01T10:00:00.000Z',
+      entries: [
+        { videoId: 'aaaaaaaaaaa', title: 'A quiet walking tour', channel: 'Wanderfoot',
+          time: '2026-09-02T20:15:00.000Z', url: 'https://www.youtube.com/watch?v=aaaaaaaaaaa' },
+        { videoId: 'bbbbbbbbbbb', title: 'Synth restoration', channel: 'Analog Autopsy',
+          time: '2026-09-01T19:00:00.000Z', url: 'https://www.youtube.com/watch?v=bbbbbbbbbbb' },
+      ],
+    });
+    const { win, doc } = await load('library.html?tab=history', SEED, {
+      pre: (w) => w.localStorage.setItem('opentube:takeout-history', seedTakeout),
+    });
+    check('library: imported history rows rendered', doc.querySelectorAll('.history-row').length === 2,
+      doc.querySelectorAll('.history-row').length + '');
+    check('library: history titles shown',
+      (doc.querySelector('#library-body')?.textContent || '').includes('A quiet walking tour'));
+    check('library: import provenance stated',
+      /Takeout/i.test(doc.querySelector('#library-body')?.textContent || ''));
+    win.close();
+  }
+
+  {
+    // signed-out Library tabs point at Settings instead of rendering nothing
+    const { win, doc } = await load('library.html?tab=subs');
+    check('library: signed-out subs offers the Google connection',
+      /Connect Google/i.test(doc.querySelector('#library-body')?.textContent || ''),
+      (doc.querySelector('#library-body')?.textContent || '').slice(0, 80));
+    win.close();
+  }
+
+  {
+    // account menu routes to the settings page
+    const { win, doc } = await load('index.html');
+    const link = doc.querySelector('#account-menu a[href="settings.html"]');
+    check('menu: settings link present', !!link);
+    check('menu: google account link present',
+      !!doc.querySelector('#account-menu a[href="settings.html#account"]'));
     win.close();
   }
 
