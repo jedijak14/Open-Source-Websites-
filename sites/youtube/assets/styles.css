@@ -168,6 +168,36 @@ body {
   min-height: 100vh;
 }
 
+/* Profile picker modal backdrop - covers entire screen */
+.profile-modal-backdrop {
+  background: var(--bg);
+}
+
+/* Main content is hidden when profile picker is shown */
+body.profile-picker-shown .shell,
+body.profile-picker-shown .main,
+body.profile-picker-shown main {
+  opacity: 0;
+  transition: opacity var(--speed-slow) var(--ease);
+  pointer-events: none;
+}
+
+body:not(.profile-selected) .shell,
+body:not(.profile-selected) .main,
+body:not(.profile-selected) main {
+  opacity: 0;
+  transition: opacity var(--speed-slow) var(--ease);
+  pointer-events: none;
+}
+
+body.profile-selected .shell,
+body.profile-selected .main,
+body.profile-selected main {
+  opacity: 1;
+  transition: opacity var(--speed-slow) var(--ease);
+  pointer-events: auto;
+}
+
 /* Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;

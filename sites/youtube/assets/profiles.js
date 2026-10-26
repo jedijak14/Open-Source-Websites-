@@ -319,6 +319,9 @@
     
     setActiveProfileId(profileId);
     
+    // Mark that a profile has been selected
+    document.body.classList.add('profile-selected');
+    
     // Switch recommender to this profile
     const rec = global.OTRec;
     if (rec) {
@@ -343,6 +346,9 @@
     // Dispatch profile change event
     const event = new CustomEvent('profileChanged', { detail: { profileId } });
     document.dispatchEvent(event);
+    
+    // Close the profile picker
+    closeProfilePicker();
     
     return true;
   }
@@ -637,31 +643,45 @@
     updateHeaderAvatar();
     setupEventListeners();
     
-    // Show profile picker on first load if needed
-    checkShowProfilePicker();
+    // Check if we already have an active profile
+    const activeProfile = getActiveProfile();
+    if (activeProfile) {
+      // Profile already selected, mark body
+      document.body.classList.add('profile-selected');
+      document.body.classList.remove('profile-picker-shown');
+    } else {
+      // No profile selected yet, show picker
+      checkShowProfilePicker();
+    }
   }
 
   /**
    * Check if we should show the profile picker modal on page load.
-   * Shows if: not signed in, or signed in but no active profile selected.
+   * For Netflix-style experience, show picker on first load.
    */
   function checkShowProfilePicker() {
     const accountId = getAccountId();
     const activeProfile = getActiveProfile();
     
-    // If we have an active profile, don't show picker
-    if (activeProfile) return;
-    
-    // If signed in but no profile yet, create one and don't show picker
-    if (accountId) {
-      // This will create a main profile if none exists
-      const profile = getActiveProfile();
-      if (profile) return;
+    // If we have an active profile and it's valid, mark body and don't show picker
+    if (activeProfile) {
+      document.body.classList.add('profile-selected');
+      document.body.classList.remove('profile-picker-shown');
+      const backdrop = document.getElementById('profile-modal-backdrop');
+      if (backdrop) {
+        backdrop.style.display = 'none';
+      }
+      return;
     }
     
-    // Show profile picker for new visitors or when no profile is active
+    // For all other cases (new visitor, not signed in, no profile), show picker
     setTimeout(() => {
-      openProfilePicker();
+      const container = document.getElementById('profile-modals-container');
+      if (container) {
+        container.innerHTML = renderProfilePicker();
+        container.style.display = 'block';
+        document.body.classList.add('profile-picker-shown');
+      }
     }, 100);
   }
 
@@ -821,6 +841,7 @@
     
     container.innerHTML = renderProfilePicker();
     container.style.display = 'block';
+    document.body.classList.add('profile-picker-shown');
     
     const firstCard = container.querySelector('.profile-card');
     if (firstCard) {
@@ -833,6 +854,7 @@
     if (container) {
       container.style.display = 'none';
     }
+    document.body.classList.remove('profile-picker-shown');
   }
 
   function openManageProfiles() {
@@ -849,6 +871,8 @@
       container.innerHTML = renderProfilePicker();
       container.style.display = 'block';
     }
+    
+    // Keep main content hidden since we're still in profile picker
   }
 
   function createNewProfile() {
