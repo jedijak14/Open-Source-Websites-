@@ -497,7 +497,19 @@
     
     let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000;">';
     html += '<div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">';
-    html += '<div class="profile-modal__head"><h2 id="profile-modal-title">Who' + "'" + 's watching?</h2></div>';
+    html += '<div class="profile-modal__head">';
+    html += '<div class="profile-modal__logo">';
+    html += '<svg class="masthead__logo" viewBox="0 0 40 40" aria-hidden="true">';
+    html += '<defs><linearGradient id="mark-g" x1="0" y1="0" x2="1" y2="1">';
+    html += '<stop offset="0" stop-color="#ff5470"/><stop offset="1" stop-color="#d81b60"/>';
+    html += '</linearGradient></defs>';
+    html += '<rect x="2" y="4" width="36" height="32" rx="11" fill="url(#mark-g)"/>';
+    html += '<path d="M16.5 13.6c0-1 1.1-1.6 2-1.1l11 6.4c.9.5.9 1.8 0 2.3l-11 6.4c-.9.5-2-.1-2-1.1V13.6Z" fill="#fff"/>';
+    html += '<circle cx="11" cy="30" r="2.2" fill="#fff" fill-opacity=".9"/>';
+    html += '</svg>';
+    html += '</div>';
+    html += '<h2 id="profile-modal-title">Who' + "'" + 's watching?</h2>';
+    html += '</div>';
     html += '<div class="profile-modal__grid" id="profile-grid">';
     
     profiles.forEach((profile) => {
@@ -530,7 +542,19 @@
   function renderSignInPrompt() {
     let html = '<div class="modal-backdrop" id="profile-modal-backdrop" style="z-index: 1000;">';
     html += '<div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">';
-    html += '<div class="profile-modal__head"><h2 id="profile-modal-title">Who' + "'" + 's watching?</h2></div>';
+    html += '<div class="profile-modal__head">';
+    html += '<div class="profile-modal__logo">';
+    html += '<svg class="masthead__logo" viewBox="0 0 40 40" aria-hidden="true">';
+    html += '<defs><linearGradient id="mark-g" x1="0" y1="0" x2="1" y2="1">';
+    html += '<stop offset="0" stop-color="#ff5470"/><stop offset="1" stop-color="#d81b60"/>';
+    html += '</linearGradient></defs>';
+    html += '<rect x="2" y="4" width="36" height="32" rx="11" fill="url(#mark-g)"/>';
+    html += '<path d="M16.5 13.6c0-1 1.1-1.6 2-1.1l11 6.4c.9.5.9 1.8 0 2.3l-11 6.4c-.9.5-2-.1-2-1.1V13.6Z" fill="#fff"/>';
+    html += '<circle cx="11" cy="30" r="2.2" fill="#fff" fill-opacity=".9"/>';
+    html += '</svg>';
+    html += '</div>';
+    html += '<h2 id="profile-modal-title">Who' + "'" + 's watching?</h2>';
+    html += '</div>';
     html += '<div class="profile-modal__grid" id="profile-grid">';
     html += '<div class="empty-state" style="text-align: center; grid-column: 1 / -1;">';
     html += '<p style="color: var(--text-secondary);">Sign in to create profiles</p></div></div>';
@@ -604,12 +628,41 @@
         if (accountId) {
           migrateLegacyData();
         }
+        // When auth state changes, check if we should show profile picker
+        checkShowProfilePicker();
       });
     }
     
     injectProfileModals();
     updateHeaderAvatar();
     setupEventListeners();
+    
+    // Show profile picker on first load if needed
+    checkShowProfilePicker();
+  }
+
+  /**
+   * Check if we should show the profile picker modal on page load.
+   * Shows if: not signed in, or signed in but no active profile selected.
+   */
+  function checkShowProfilePicker() {
+    const accountId = getAccountId();
+    const activeProfile = getActiveProfile();
+    
+    // If we have an active profile, don't show picker
+    if (activeProfile) return;
+    
+    // If signed in but no profile yet, create one and don't show picker
+    if (accountId) {
+      // This will create a main profile if none exists
+      const profile = getActiveProfile();
+      if (profile) return;
+    }
+    
+    // Show profile picker for new visitors or when no profile is active
+    setTimeout(() => {
+      openProfilePicker();
+    }, 100);
   }
 
   function injectProfileModals() {
