@@ -179,16 +179,34 @@ public final class Taste {
         save();
     }
 
-    /** Subscriptions and liked videos from the Google account. */
+    /**
+     * Subscriptions and liked videos from the Google account. Account rows are
+     * keyed by YouTube channel id, while the bundled catalogue is keyed by slug,
+     * so a name match files the weight under both — that is what lets a real
+     * YouTube subscription influence the built-in shelves.
+     */
     public void mergeAccount(Account.Sync sync) {
         if (sync == null) return;
         for (Api.Sub sub : sync.subs) {
             bump(channels, sub.channelId, 0.8);
+            String slug = slugFor(sub.title);
+            if (slug != null) bump(channels, slug, 0.6);
         }
         for (Catalog.Video video : sync.liked) {
             bump(channels, video.channel, 0.6);
+            String slug = slugFor(video.channelName);
+            if (slug != null) bump(channels, slug, 0.4);
         }
         save();
+    }
+
+    /** The bundled channel slug whose display name matches, if any. */
+    private String slugFor(String name) {
+        if (name == null || name.isEmpty()) return null;
+        for (Catalog.Channel channel : catalog.channels().values()) {
+            if (channel.name.equalsIgnoreCase(name.trim())) return channel.slug;
+        }
+        return null;
     }
 
     private static double squash(double weight) {
