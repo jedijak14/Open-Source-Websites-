@@ -508,7 +508,7 @@ async function run() {
 }
 
 async function startServer() {
-  server = spawn(process.execPath, ['server.mjs', String(PORT)], {
+  server = spawn(process.execPath, ['dev-server.mjs', String(PORT)], {
     cwd: root,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

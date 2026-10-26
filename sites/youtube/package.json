@@ -6,7 +6,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "start": "node server.mjs",
+    "start": "node dev-server.mjs",
     "build": "node scripts/build-pages.mjs",
     "test": "node tests/youtube-api.test.mjs && node tests/auth.test.mjs && node tests/ui.test.mjs",
     "test:api": "node tests/youtube-api.test.mjs",

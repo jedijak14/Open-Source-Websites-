@@ -4,7 +4,7 @@
 # Safe to re-run any time. It reacts to the two things that actually break a
 # fresh sandbox:
 #   1. node_modules is not part of the snapshot  -> reinstalls jsdom (dev only)
-#   2. the generated *.html can be stale          -> server.mjs rebuilds on boot
+#   2. the generated *.html can be stale          -> dev-server.mjs rebuilds on boot
 #
 # Usage:
 #   ./scripts/preview.sh          # port 4321
@@ -30,4 +30,4 @@ if curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:${PORT}/index.html"; the
 fi
 
 echo "→ building pages and starting OpenTube on port ${PORT}"
-exec node server.mjs "${PORT}"
+exec node dev-server.mjs "${PORT}"

@@ -7,7 +7,7 @@
  * - supports HTTP byte ranges, which is what makes <video> seeking work
  * - binds 0.0.0.0 so it can be opened from another device or a preview proxy
  *
- * Usage: node server.mjs [port]
+ * Usage: node dev-server.mjs [port]
  */
 import http from 'node:http';
 import { createReadStream } from 'node:fs';

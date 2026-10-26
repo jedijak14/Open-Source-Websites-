@@ -7,7 +7,7 @@ It is part of the **Open Source Websites** collection: hand-built, dependency-fr
 recreations of familiar web products, using original code, copy and assets.
 
 ```
-node server.mjs              # builds the pages, serves on http://localhost:4321
+node dev-server.mjs              # builds the pages, serves on http://localhost:4321
 ./scripts/preview.sh         # same, but installs missing dev deps first
 PORT=4400 ./scripts/preview.sh
 ```
@@ -167,7 +167,7 @@ sites/youtube/
 │   ├── youtube-api.test.mjs  API client against a stubbed fetch (59)
 │   └── auth.test.mjs     sign-in lifecycle + Takeout parser (38)
 ├── package.json          start / build / test scripts
-└── server.mjs            static server with byte-range support
+└── dev-server.mjs            static server with byte-range support
 ```
 
 The generated `*.html` files at the root are committed, so the folder can be hosted

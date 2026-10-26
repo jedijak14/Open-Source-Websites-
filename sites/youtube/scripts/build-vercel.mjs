@@ -3,7 +3,7 @@
  * Emits a Vercel Build Output (.vercel/output) for this static site.
  *
  * Why: with a Node-style project Vercel's framework detection picked
- * `server.mjs` as the app entrypoint and deployed a serverless function
+ * `dev-server.mjs` as the app entrypoint and deployed a serverless function
  * instead of the static site. A valid Build Output takes precedence over
  * framework detection, so the deployment is deterministic: plain files plus
  * the headers we want.
