@@ -170,10 +170,17 @@ body {
 
 /* Profile picker modal backdrop - covers entire screen */
 .profile-modal-backdrop,
-#profile-modal-backdrop {
+#profile-modal-backdrop,
+.modal-backdrop#profile-modal-backdrop {
   background: var(--bg) !important;
   opacity: 1 !important;
   visibility: visible !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 /* Main content is hidden when profile picker is shown */
